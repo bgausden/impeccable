@@ -2,7 +2,7 @@
 name: audit
 description: Perform comprehensive audit of interface quality across accessibility, performance, theming, and responsive design. Generates detailed report of issues with severity ratings and recommendations.
 user-invocable: true
-argument-hint: [AREA=<value>]
+argument-hint: "[AREA=<value>]"
 ---
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
@@ -68,7 +68,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /animate, /quieter, /optimize, /adapt, /clarify, /distill, /delight, /onboard, /normalize, /audit, /harden, /polish, /extract, /bolder, /arrange, /typeset, /critique, /colorize, /overdrive — or other installed skills you're sure exist)
+- **Suggested command**: Which command to use (prefer: /adapt, /animate, /arrange, /audit, /bolder, /clarify, /colorize, /critique, /delight, /distill, /extract, /harden, /normalize, /onboard, /optimize, /overdrive, /polish, /quieter, /typeset — or other installed skills you're sure exist)
 
 #### Critical Issues
 [Issues that block core functionality or violate WCAG A]
@@ -105,7 +105,7 @@ Create actionable plan:
 
 ### Suggested Commands for Fixes
 
-Map issues to available commands. Prefer these: /animate, /quieter, /optimize, /adapt, /clarify, /distill, /delight, /onboard, /normalize, /audit, /harden, /polish, /extract, /bolder, /arrange, /typeset, /critique, /colorize, /overdrive. You may also suggest other installed skills you're sure exist, but never invent commands.
+Map issues to available commands. Prefer these: /adapt, /animate, /arrange, /audit, /bolder, /clarify, /colorize, /critique, /delight, /distill, /extract, /harden, /normalize, /onboard, /optimize, /overdrive, /polish, /quieter, /typeset. You may also suggest other installed skills you're sure exist, but never invent commands.
 
 Examples:
 - "Use `/normalize` to align with design system (addresses N theming issues)"

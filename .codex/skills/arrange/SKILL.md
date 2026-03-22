@@ -1,7 +1,7 @@
 ---
 name: arrange
 description: Improve layout, spacing, and visual rhythm. Fixes monotonous grids, inconsistent spacing, and weak visual hierarchy to create intentional compositions.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 ---
 
 Assess and improve layout and spacing that feels monotonous, crowded, or structurally weak — turning generic arrangements into intentional, rhythmic compositions.

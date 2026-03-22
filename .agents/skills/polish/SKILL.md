@@ -2,7 +2,7 @@
 name: polish
 description: Final quality pass before shipping. Fixes alignment, spacing, consistency, and detail issues that separate good from great.
 user-invocable: true
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 ---
 
 ## MANDATORY PREPARATION

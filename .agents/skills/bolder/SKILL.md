@@ -2,7 +2,7 @@
 name: bolder
 description: Amplify safe or boring designs to make them more visually interesting and stimulating. Increases impact while maintaining usability.
 user-invocable: true
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 ---
 
 Increase visual impact and personality in designs that are too safe, generic, or visually underwhelming, creating more engaging and memorable experiences.

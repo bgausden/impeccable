@@ -2,7 +2,7 @@
 name: distill
 description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean.
 user-invocable: true
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 ---
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.

@@ -6,7 +6,16 @@ dist/
 build/
 
 # Build artifacts
-*.log
+*.log/
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.gemini/
+/.github/skills/
+/.kiro/
+/.opencode/
+/.pi/
 
 # OS files
 .DS_Store
