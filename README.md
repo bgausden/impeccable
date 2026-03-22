@@ -2,7 +2,7 @@
 
 The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable frontend design. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, and more.
 
-> **Quick start:** Run `npx skills add pbakaus/impeccable`, or build locally with `npm install && npm run build` and copy the generated files from `dist/`.
+> **Quick start:** Run `npx skills add pbakaus/impeccable`, download a ZIP from [GitHub Releases](https://github.com/pbakaus/impeccable/releases), or build locally with `npm install && npm run build`.
 
 ## Why Impeccable?
 
@@ -115,16 +115,23 @@ Run `npm run dev` to browse the local examples and command demos in this reposit
 npx skills add pbakaus/impeccable
 ```
 
-### Option 2: Build and copy from the repository
+### Option 2: Download from GitHub Releases
+
+Download the latest ZIP bundle from [GitHub Releases](https://github.com/pbakaus/impeccable/releases) and extract it into your project root.
+
+- `universal.zip` contains the standard command names
+- `universal-prefixed.zip` contains `/i-` prefixed command variants to avoid naming conflicts
+
+### Option 3: Build and copy from the repository
 
 ```bash
 npm install
 npm run build
 ```
 
-The build writes provider outputs to `dist/` plus universal bundles in `dist/universal/` and `dist/universal-prefixed/`.
+The build writes provider outputs to `dist/` plus release-ready ZIP bundles in `dist/*.zip`.
 
-### Option 3: Copy from `dist/`
+### Option 4: Copy from `dist/`
 
 **Cursor:**
 ```bash
