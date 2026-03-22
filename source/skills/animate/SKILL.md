@@ -1,7 +1,7 @@
 ---
 name: animate
 description: Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

@@ -1,7 +1,7 @@
 ---
 name: clarify
 description: Improve unclear UX copy, error messages, microcopy, labels, and instructions. Makes interfaces easier to understand and use.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

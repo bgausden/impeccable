@@ -16,6 +16,15 @@ export function parseFrontmatter(content) {
   const [, frontmatterText, body] = match;
   const frontmatter = {};
 
+  const parseScalar = (value) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value.startsWith('"') && value.endsWith('"')) {
+      return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    }
+    return value;
+  };
+
   // Simple YAML parser (handles basic key-value and arrays)
   const lines = frontmatterText.split('\n');
   let currentKey = null;
@@ -48,7 +57,7 @@ export function parseFrontmatter(content) {
         const key = trimmed.slice(0, colonIndex).trim();
         const value = trimmed.slice(colonIndex + 1).trim();
         const lastObj = currentArray[currentArray.length - 1];
-        lastObj[key] = value === 'true' ? true : value === 'false' ? false : value;
+        lastObj[key] = parseScalar(value);
       }
       continue;
     }
@@ -61,7 +70,7 @@ export function parseFrontmatter(content) {
         const value = trimmed.slice(colonIndex + 1).trim();
 
         if (value) {
-          frontmatter[key] = value === 'true' ? true : value === 'false' ? false : value;
+          frontmatter[key] = parseScalar(value);
           currentKey = key;
           currentArray = null;
         } else {
@@ -437,6 +446,15 @@ export function replacePlaceholders(content, provider, commandNames = []) {
  * Generate YAML frontmatter string
  */
 export function generateYamlFrontmatter(data) {
+  const quoteYamlScalar = (value) => {
+    if (typeof value !== 'string') return value;
+
+    const requiresQuotes = /[[\]{}]|:\s|^\s|\s$|^[-?:,&*!#|>'"%@`]/.test(value);
+    if (!requiresQuotes) return value;
+
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  };
+
   const lines = ['---'];
 
   for (const [key, value] of Object.entries(data)) {
@@ -454,7 +472,7 @@ export function generateYamlFrontmatter(data) {
     } else if (typeof value === 'boolean') {
       lines.push(`${key}: ${value}`);
     } else {
-      lines.push(`${key}: ${value}`);
+      lines.push(`${key}: ${quoteYamlScalar(value)}`);
     }
   }
 

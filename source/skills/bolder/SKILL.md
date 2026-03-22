@@ -1,7 +1,7 @@
 ---
 name: bolder
 description: Amplify safe or boring designs to make them more visually interesting and stimulating. Increases impact while maintaining usability.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

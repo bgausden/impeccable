@@ -1,7 +1,7 @@
 ---
 name: arrange
 description: Improve layout, spacing, and visual rhythm. Fixes monotonous grids, inconsistent spacing, and weak visual hierarchy to create intentional compositions.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

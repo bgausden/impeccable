@@ -1,7 +1,7 @@
 ---
 name: distill
 description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean.
-argument-hint: [TARGET=<value>]
+argument-hint: "[TARGET=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

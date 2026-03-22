@@ -1,7 +1,7 @@
 ---
 name: adapt
 description: Adapt designs to work across different screen sizes, devices, contexts, or platforms. Ensures consistent experience across varied environments.
-argument-hint: [TARGET=<value>] [CONTEXT=<value>]
+argument-hint: "[TARGET=<value>] [CONTEXT=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args

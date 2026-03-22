@@ -1,7 +1,7 @@
 ---
 name: normalize
 description: Normalize design to match your design system and ensure consistency
-argument-hint: [FEATURE=<value>]
+argument-hint: "[FEATURE=<value>]"
 user-invocable: true
 ---
 <!-- impeccable-args
