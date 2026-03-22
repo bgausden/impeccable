@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from '../test-helpers.js';
 import path from 'path';
 import {
   ALLOWED_BUNDLE_PROVIDERS,

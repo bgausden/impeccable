@@ -6,7 +6,7 @@
  * Renders the OG image using Playwright with proper Google Fonts.
  * Counts skills and commands dynamically from the source/ directory.
  *
- * Usage: bun run og-image
+ * Usage: npm run og-image
  */
 
 import { chromium } from 'playwright';

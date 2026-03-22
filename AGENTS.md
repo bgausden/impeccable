@@ -61,11 +61,11 @@ impeccable/
 │   │   ├── tokens.css           # Design system
 │   │   └── ...                  # Component styles
 │   └── app.js                   # Vanilla JS
-├── server/                      # Bun server (local dev only)
+├── server/                      # Node.js dev server (local dev only)
 │   ├── index.js                 # Serves website + API routes
 │   └── lib/
 │       └── api-handlers.js      # Shared API logic (used by both server & functions)
-├── scripts/                     # Build system (Bun)
+├── scripts/                     # Build system (Node.js + tsx)
 │   ├── build.js                 # Main orchestrator
 │   ├── lib/
 │   │   ├── utils.js             # Shared utilities
@@ -77,21 +77,21 @@ impeccable/
 │   │       └── codex.js
 ├── README.md                    # End user documentation
 ├── DEVELOP.md                   # Contributor documentation
-└── package.json                 # Bun scripts
+└── package.json                 # npm scripts
 ```
 
 ## Website (impeccable.style)
 
 **Tech Stack:**
 - Vanilla JavaScript (no frameworks)
-- Modern CSS with Bun's bundler (nesting, OKLCH colors, @import)
-- **Local Development**: Bun server with native routes (`server/index.js`)
-- **Production**: Vercel Functions with Bun runtime (`/api` directory)
-- Deployed on Vercel with Bun runtime
+- Modern CSS with Tailwind CLI plus native CSS features (nesting, OKLCH colors, @import)
+- **Local Development**: Node.js server with native routes (`server/index.js`)
+- **Production**: Cloudflare Pages static build plus download functions
+- Deployed on Cloudflare Pages
 
 **Dual Setup:**
 - `/api` directory contains individual Vercel Functions for production
-- `/server` directory contains monolithic Bun server for local development
+- `/server` directory contains monolithic Node.js server for local development
 - `/server/lib/api-handlers.js` contains shared logic used by both
 - Zero duplication: API functions and dev server import the same handlers
 
@@ -148,14 +148,14 @@ Skill instructions for the LLM here.
 
 ## Build System
 
-Uses **Bun** for fast builds. Modular architecture:
+Uses **npm + tsx** for builds. Modular architecture:
 
 - **`utils.js`**: Shared functions (parseFrontmatter, readSourceFiles, writeFile, etc.)
 - **Transformer pattern**: Each provider has one focused file
 - **Registry**: `transformers/index.js` exports all transformers
 - **Main script**: `build.js` orchestrates everything (~50 lines)
 
-Run: `bun run build`
+Run: `npm run build`
 
 ## Provider Transformations
 
@@ -203,11 +203,11 @@ End users can copy files directly without needing build tools.
 - Can modify one without affecting others
 - Easy to add new providers
 
-### Why Bun?
-- Much faster than Node.js (2-4x)
-- All-in-one toolkit (runtime + package manager)
-- Zero config, TypeScript native
-- Node.js compatible (works with existing code)
+### Why npm + tsx?
+- Familiar workflow for contributors
+- Works cleanly with Node.js tooling and Cloudflare Pages
+- `tsx` runs ESM scripts without extra build config
+- Keeps local development close to production behavior
 
 ### Why modular skills for Gemini/Codex?
 - Better context management (load only what's needed)
@@ -217,7 +217,7 @@ End users can copy files directly without needing build tools.
 
 ### Why vanilla JS for website?
 - No build complexity
-- Bun handles everything natively
+- Browser-native ES modules plus the Tailwind CLI keep tooling minimal
 - Modern features (ES6+, CSS nesting, OKLCH colors)
 - Fast, lean, maintainable
 
@@ -226,7 +226,7 @@ End users can copy files directly without needing build tools.
 1. **Create source file** in `source/commands/` or `source/skills/`
 2. **Add frontmatter** with name, description, args (for commands) or license (for skills)
 3. **Write body** with instructions/prompt
-4. **Build**: `bun run build`
+4. **Build**: `npm run build`
 5. **Test** with your provider
 6. **Commit** both source and dist files
 

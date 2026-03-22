@@ -5,7 +5,7 @@
 **IMPORTANT**: After modifying any CSS files in `public/css/` (especially `workflow.css` or `main.css`), you MUST rebuild the Tailwind CSS:
 
 ```bash
-bunx @tailwindcss/cli -i public/css/main.css -o public/css/styles.css
+npm run css:build
 ```
 
 The CSS architecture:
@@ -16,8 +16,8 @@ The CSS architecture:
 ## Development Server
 
 ```bash
-bun run dev        # Bun dev server at http://localhost:3000
-bun run preview    # Build + Cloudflare Pages local preview
+npm run dev        # Node.js dev server at http://localhost:3000
+npm run preview    # Build + Cloudflare Pages local preview
 ```
 
 ## Deployment
@@ -25,7 +25,7 @@ bun run preview    # Build + Cloudflare Pages local preview
 Hosted on Cloudflare Pages. Static assets served from `build/`, API routes handled via `_redirects` rewrites (JSON) and Pages Functions (downloads).
 
 ```bash
-bun run deploy     # Build + deploy to Cloudflare Pages
+npm run deploy     # Build + deploy to Cloudflare Pages
 ```
 
 ## Build System
@@ -33,8 +33,8 @@ bun run deploy     # Build + deploy to Cloudflare Pages
 The build system compiles skills and commands from `source/` to provider-specific formats in `dist/`:
 
 ```bash
-bun run build      # Build all providers
-bun run rebuild    # Clean and rebuild
+npm run build      # Build all providers
+npm run rebuild    # Clean and rebuild
 ```
 
 Source files use placeholders that get replaced per-provider:

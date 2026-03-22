@@ -92,7 +92,7 @@ async function checkServer() {
 async function main() {
   const serverRunning = await checkServer();
   if (!serverRunning) {
-    console.error('❌ Dev server not running. Please start it with: bun run dev');
+    console.error('❌ Dev server not running. Please start it with: npm run dev');
     process.exit(1);
   }
 

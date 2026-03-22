@@ -17,7 +17,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { readSourceFiles, readPatterns } from './lib/utils.js';
+import { cleanDir, readSourceFiles, readPatterns } from './lib/utils.js';
 import {
   transformCursor,
   transformClaudeCode,
@@ -55,7 +55,7 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 
 /**
  * Build Tailwind CSS using the CLI
- * Tailwind v4 uses @theme directive which Bun's CSS bundler doesn't understand
+ * Tailwind v4 uses @theme directives, so we compile CSS explicitly with the CLI
  */
 function buildTailwindCSS() {
   const inputFile = path.join(ROOT_DIR, 'public', 'css', 'main.css');
@@ -63,7 +63,7 @@ function buildTailwindCSS() {
 
   console.log('🎨 Building Tailwind CSS...');
   try {
-    execSync(`bunx @tailwindcss/cli -i "${inputFile}" -o "${outputFile}" --minify`, {
+    execSync(`npx @tailwindcss/cli -i "${inputFile}" -o "${outputFile}" --minify`, {
       cwd: ROOT_DIR,
       stdio: 'inherit'
     });
@@ -75,57 +75,51 @@ function buildTailwindCSS() {
 }
 
 /**
- * Build static site using Bun's HTML bundler
- * CSS is pre-compiled by Tailwind CLI, then bundled with HTML/JS
+ * Build static site by copying the public directory into the build output.
+ * CSS is pre-compiled by Tailwind CLI, and the site runs directly from
+ * browser-native ES modules plus static assets.
  */
 async function buildStaticSite() {
-  const entrypoints = [
-    path.join(ROOT_DIR, 'public', 'index.html'),
-    path.join(ROOT_DIR, 'public', 'cheatsheet.html'),
-  ];
+  const publicDir = path.join(ROOT_DIR, 'public');
   const outdir = path.join(ROOT_DIR, 'build');
 
-  console.log('📦 Building static site with Bun...');
+  console.log('📦 Copying static site assets...');
 
   try {
-    const result = await Bun.build({
-      entrypoints: entrypoints,
-      outdir: outdir,
-      minify: true,
-      sourcemap: 'linked',
-    });
+    cleanDir(outdir);
+    copyDirSync(publicDir, outdir);
 
-    if (!result.success) {
-      console.error('Build failed:');
-      for (const log of result.logs) {
-        console.error(log.message || log);
-        if (log.position) {
-          console.error(`  at ${log.position.file}:${log.position.line}:${log.position.column}`);
+    const fileCounts = { html: 0, js: 0, css: 0, total: 0, bytes: 0 };
+    const stack = [outdir];
+
+    while (stack.length > 0) {
+      const currentDir = stack.pop();
+      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const entryPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(entryPath);
+          continue;
         }
+
+        const size = fs.statSync(entryPath).size;
+        fileCounts.total++;
+        fileCounts.bytes += size;
+        if (entry.name.endsWith('.html')) fileCounts.html++;
+        if (entry.name.endsWith('.js')) fileCounts.js++;
+        if (entry.name.endsWith('.css')) fileCounts.css++;
       }
-      process.exit(1);
     }
 
-    // Calculate total size
-    const totalSize = result.outputs.reduce((sum, o) => sum + o.size, 0);
-    const jsFiles = result.outputs.filter(o => o.path.endsWith('.js'));
-    const cssFiles = result.outputs.filter(o => o.path.endsWith('.css'));
-
-    console.log(`✓ Static site built to ./build/`);
-    console.log(`  HTML: 1 file`);
-    console.log(`  JS: ${jsFiles.length} file(s) (${(jsFiles.reduce((s, f) => s + f.size, 0) / 1024).toFixed(1)} KB)`);
-    console.log(`  CSS: ${cssFiles.length} file(s) (${(cssFiles.reduce((s, f) => s + f.size, 0) / 1024).toFixed(1)} KB)`);
-    console.log(`  Total: ${(totalSize / 1024).toFixed(1)} KB\n`);
-
-    return result;
+    console.log(`✓ Static site copied to ./build/`);
+    console.log(`  HTML: ${fileCounts.html} file(s)`);
+    console.log(`  JS: ${fileCounts.js} file(s)`);
+    console.log(`  CSS: ${fileCounts.css} file(s)`);
+    console.log(`  Total: ${(fileCounts.bytes / 1024).toFixed(1)} KB across ${fileCounts.total} file(s)\n`);
   } catch (error) {
     console.error('Failed to build static site:', error.message);
     console.error(error.stack);
-    if (error.logs) {
-      for (const log of error.logs) {
-        console.error(log.message || log);
-      }
-    }
     process.exit(1);
   }
 }
@@ -249,12 +243,12 @@ function generateCFConfig(buildDir) {
 /*.html
   Cache-Control: public, max-age=0, s-maxage=3600, stale-while-revalidate=600
 
-# Hashed JS/CSS bundles: immutable (filename changes on content change)
-/assets/*.js
-  Cache-Control: public, max-age=31536000, immutable
+# Static JS and CSS: short browser cache + stale revalidation
+/js/*.js
+  Cache-Control: public, max-age=3600, stale-while-revalidate=600
 
-/assets/*.css
-  Cache-Control: public, max-age=31536000, immutable
+/css/*.css
+  Cache-Control: public, max-age=3600, stale-while-revalidate=600
 
 # Static images and logos: 1 week + 1 day stale
 /assets/*.png
@@ -321,18 +315,9 @@ async function build() {
   // Build CSS with Tailwind CLI (handles @theme directive)
   buildTailwindCSS();
 
-  // Bundle HTML, JS, and compiled CSS with Bun
+  // Copy HTML, JS, assets, and compiled CSS into build/
   await buildStaticSite();
-
-  // Copy root-level static assets that need stable (unhashed) URLs
-  const staticAssets = ['og-image.jpg', 'robots.txt', 'sitemap.xml', 'favicon.svg', 'apple-touch-icon.png'];
   const buildDir = path.join(ROOT_DIR, 'build');
-  for (const asset of staticAssets) {
-    const src = path.join(ROOT_DIR, 'public', asset);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(buildDir, asset));
-    }
-  }
 
   // Read source files (unified skills architecture)
   const { skills } = readSourceFiles(ROOT_DIR);

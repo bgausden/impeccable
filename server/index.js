@@ -1,6 +1,7 @@
-import { serve, file } from "bun";
-import homepage from "../public/index.html";
-import cheatsheet from "../public/cheatsheet.html";
+import { createReadStream, existsSync } from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   getSkills,
   getCommands,
@@ -8,131 +9,154 @@ import {
   getPatterns,
   handleFileDownload,
   handleBundleDownload
-} from "./lib/api-handlers.js";
+} from './lib/api-handlers.js';
 
-const server = serve({
-  port: process.env.PORT || 3000,
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.join(__dirname, '..');
+const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
+const port = Number(process.env.PORT || 3000);
 
-  routes: {
-    "/": homepage,
-    "/cheatsheet": cheatsheet,
+const MIME_TYPES = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.zip': 'application/zip',
+};
 
-    // Static assets - all public subdirectories
-    "/assets/*": async (req) => {
-      const url = new URL(req.url);
-      if (url.pathname.includes('..')) return new Response("Bad Request", { status: 400 });
-      const filePath = `./public${url.pathname}`;
-      const assetFile = file(filePath);
-      if (await assetFile.exists()) {
-        return new Response(assetFile, {
-          headers: { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" }
-        });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
-    "/css/*": async (req) => {
-      const url = new URL(req.url);
-      if (url.pathname.includes('..')) return new Response("Bad Request", { status: 400 });
-      const filePath = `./public${url.pathname}`;
-      const assetFile = file(filePath);
-      if (await assetFile.exists()) {
-        return new Response(assetFile, {
-          headers: { "Content-Type": "text/css", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" }
-        });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
-    "/js/*": async (req) => {
-      const url = new URL(req.url);
-      if (url.pathname.includes('..')) return new Response("Bad Request", { status: 400 });
-      const filePath = `./public${url.pathname}`;
-      const assetFile = file(filePath);
-      if (await assetFile.exists()) {
-        return new Response(assetFile, {
-          headers: { "Content-Type": "application/javascript", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" }
-        });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
-    "/antipattern-examples/*": async (req) => {
-      const url = new URL(req.url);
-      if (url.pathname.includes('..')) return new Response("Bad Request", { status: 400 });
-      const filePath = `./public${url.pathname}`;
-      const assetFile = file(filePath);
-      if (await assetFile.exists()) {
-        return new Response(assetFile, {
-          headers: { "Content-Type": "text/html", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" }
-        });
-      }
-      return new Response("Not Found", { status: 404 });
-    },
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+}
 
-    // API: Get all skills
-    "/api/skills": {
-      async GET() {
-        const skills = await getSkills();
-        return Response.json(skills);
-      },
-    },
-    
-    // API: Get all commands
-    "/api/commands": {
-      async GET() {
-        const commands = await getCommands();
-        return Response.json(commands);
-      },
-    },
+function sendJson(res, data, status = 200) {
+  setSecurityHeaders(res);
+  res.writeHead(status, { 'Content-Type': MIME_TYPES['.json'] });
+  res.end(JSON.stringify(data));
+}
 
-    // API: Get patterns and antipatterns
-    "/api/patterns": {
-      async GET() {
-        const patterns = await getPatterns();
-        return Response.json(patterns);
-      },
-    },
+async function sendWebResponse(res, response) {
+  setSecurityHeaders(res);
 
-    // API: Get command source content
-    "/api/command-source/:id": async (req) => {
-      const { id } = req.params;
-      const result = await getCommandSource(id);
-      if (result && result.error) {
-        return Response.json({ error: result.error }, { status: result.status });
-      }
-      if (!result) {
-        return Response.json({ error: "Command not found" }, { status: 404 });
-      }
-      return Response.json({ content: result });
-    },
+  for (const [key, value] of response.headers.entries()) {
+    res.setHeader(key, value);
+  }
 
-    // API: Download individual file
-    "/api/download/:type/:provider/:id": async (req) => {
-      const { type, provider, id } = req.params;
-      return handleFileDownload(type, provider, id);
-    },
-    
-    // API: Download provider bundle ZIP
-    "/api/download/bundle/:provider": async (req) => {
-      const { provider } = req.params;
-      return handleBundleDownload(provider);
-    },
-  },
-  
-  // Serve root-level static files (og-image.png, favicon, robots.txt, etc.)
-  fetch(req) {
-    const url = new URL(req.url);
-    if (url.pathname.includes('..')) {
-      return new Response("Bad Request", { status: 400 });
+  res.statusCode = response.status;
+
+  if (!response.body) {
+    res.end();
+    return;
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  res.end(buffer);
+}
+
+async function serveFile(res, relativePath) {
+  if (relativePath.includes('..')) {
+    setSecurityHeaders(res);
+    res.writeHead(400, { 'Content-Type': MIME_TYPES['.txt'] });
+    res.end('Bad Request');
+    return;
+  }
+
+  const normalized = relativePath.replace(/^\/+/, '');
+  const filePath = path.join(PUBLIC_DIR, normalized);
+
+  if (!filePath.startsWith(PUBLIC_DIR) || !existsSync(filePath)) {
+    setSecurityHeaders(res);
+    res.writeHead(404, { 'Content-Type': MIME_TYPES['.txt'] });
+    res.end('Not Found');
+    return;
+  }
+
+  const ext = path.extname(filePath);
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  setSecurityHeaders(res);
+  res.writeHead(200, { 'Content-Type': contentType });
+  createReadStream(filePath).pipe(res);
+}
+
+async function handleRequest(req, res) {
+  const requestUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const pathname = requestUrl.pathname;
+
+  if (pathname === '/') {
+    await serveFile(res, 'index.html');
+    return;
+  }
+
+  if (pathname === '/cheatsheet') {
+    await serveFile(res, 'cheatsheet.html');
+    return;
+  }
+
+  if (pathname === '/api/skills') {
+    sendJson(res, await getSkills());
+    return;
+  }
+
+  if (pathname === '/api/commands') {
+    sendJson(res, await getCommands());
+    return;
+  }
+
+  if (pathname === '/api/patterns') {
+    sendJson(res, await getPatterns());
+    return;
+  }
+
+  const commandSourceMatch = pathname.match(/^\/api\/command-source\/([a-z0-9_-]+)$/);
+  if (commandSourceMatch) {
+    const result = await getCommandSource(commandSourceMatch[1]);
+    if (result?.error) {
+      sendJson(res, { error: result.error }, result.status);
+      return;
     }
-    const filePath = `./public${url.pathname}`;
-    const staticFile = file(filePath);
-    if (staticFile.size > 0) {
-      return new Response(staticFile);
+    if (!result) {
+      sendJson(res, { error: 'Command not found' }, 404);
+      return;
     }
-    return new Response("Not Found", { status: 404 });
-  },
+    sendJson(res, { content: result });
+    return;
+  }
 
-  development: process.env.NODE_ENV !== "production",
+  const bundleMatch = pathname.match(/^\/api\/download\/bundle\/([a-z0-9_-]+)$/);
+  if (bundleMatch) {
+    await sendWebResponse(res, await handleBundleDownload(bundleMatch[1]));
+    return;
+  }
+
+  const fileMatch = pathname.match(/^\/api\/download\/([a-z]+)\/([a-z0-9-]+)\/([a-z0-9_-]+)$/);
+  if (fileMatch) {
+    const [, type, provider, id] = fileMatch;
+    await sendWebResponse(res, await handleFileDownload(type, provider, id));
+    return;
+  }
+
+  const staticPath = pathname === '/' ? 'index.html' : pathname.slice(1);
+  await serveFile(res, staticPath);
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    await handleRequest(req, res);
+  } catch (error) {
+    console.error('Server error:', error);
+    setSecurityHeaders(res);
+    res.writeHead(500, { 'Content-Type': MIME_TYPES['.txt'] });
+    res.end('Internal Server Error');
+  }
 });
 
-console.log(`🎨 impeccable.style running at ${server.url}`);
-
+server.listen(port, () => {
+  console.log(`🎨 impeccable.style running at http://localhost:${port}`);
+});

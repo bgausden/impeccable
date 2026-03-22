@@ -12,12 +12,12 @@ import {
 	sanitizeFilename
 } from "./validation.js";
 
-// Get project root directory (works in both Node.js and Bun, including Vercel)
+// Get project root directory (works in both local Node.js and deployed runtimes)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, "..", "..");
 
-// Helper to read file content (works in both Node.js and Bun)
+// Helper to read file content
 async function readFileContent(filePath) {
 	return readFile(filePath, "utf-8");
 }

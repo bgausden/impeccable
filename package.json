@@ -19,18 +19,21 @@
   ],
   "license": "SEE LICENSE FILE",
   "scripts": {
-    "build": "bun run scripts/build.js",
+    "css:build": "npx @tailwindcss/cli -i public/css/main.css -o public/css/styles.css --minify",
+    "build": "tsx scripts/build.js",
     "clean": "rm -rf dist build",
-    "rebuild": "bun run clean && bun run build",
-    "dev": "bun run server/index.js",
-    "preview": "bun run build && wrangler pages dev",
-    "deploy": "bun run build && wrangler pages deploy build/",
-    "test": "bun test",
-    "screenshot": "bun run scripts/screenshot-antipatterns.js",
-    "og-image": "bun run scripts/generate-og-image.js"
+    "rebuild": "npm run clean && npm run build",
+    "dev": "tsx server/index.js",
+    "preview": "npm run build && wrangler pages dev",
+    "deploy": "npm run build && wrangler pages deploy build/",
+    "test": "node --test",
+    "screenshot": "tsx scripts/screenshot-antipatterns.js",
+    "og-image": "tsx scripts/generate-og-image.js"
   },
   "type": "module",
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.13",
+    "tsx": "^4.20.5",
     "wrangler": "^4.71.0"
   }
 }

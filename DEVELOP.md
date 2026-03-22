@@ -61,20 +61,20 @@ Your skill instructions here...
 ## Building
 
 ### Prerequisites
-- Bun (fast JavaScript runtime and package manager)
-- No external dependencies required
+- Node.js
+- `npm install`
 
 ### Commands
 
 ```bash
 # Build all provider formats
-bun run build
+npm run build
 
 # Clean dist folder
-bun run clean
+npm run clean
 
 # Rebuild from scratch
-bun run rebuild
+npm run rebuild
 ```
 
 ### What Gets Generated
@@ -149,7 +149,7 @@ Add frontmatter and content following the format above.
 ### 2. Build
 
 ```bash
-bun run build
+npm run build
 ```
 
 This generates all 8 provider formats automatically.
@@ -249,7 +249,7 @@ impeccable/
 │           ├── kiro.js
 │           ├── opencode.js
 │           └── pi.js
-├── tests/                           # Bun test suite
+├── tests/                           # Node test suite
 ├── package.json                     # ESM project config
 ├── README.md                        # User documentation
 ├── DEVELOP.md                       # This file
@@ -266,7 +266,7 @@ impeccable/
 ### Output doesn't match expectations
 - Check the transformer function for your provider in `scripts/lib/transformers/`
 - Verify source file has correct frontmatter structure
-- Run `bun run rebuild` to ensure clean build
+- Run `npm run rebuild` to ensure clean build
 
 ### Provider doesn't recognize the files
 - Check installation path for your provider
