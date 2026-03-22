@@ -78,6 +78,72 @@ export function parseFrontmatter(content) {
 }
 
 /**
+ * Extract rich argument metadata from a leading HTML comment in the body.
+ * This keeps source frontmatter simple for Copilot-compatible parsers while
+ * preserving descriptions for providers that support structured args.
+ */
+export function extractSkillArgsMetadata(body) {
+  const argsCommentRegex = /^<!-- impeccable-args\n([\s\S]*?)\n-->\s*/;
+  const match = body.match(argsCommentRegex);
+
+  if (!match) {
+    return { args: [], body };
+  }
+
+  const [, argsText] = match;
+  const args = [];
+  let currentArg = null;
+
+  for (const line of argsText.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (trimmed.startsWith('- name:')) {
+      currentArg = { name: trimmed.slice(7).trim() };
+      args.push(currentArg);
+      continue;
+    }
+
+    if (!currentArg) continue;
+
+    const colonIndex = trimmed.indexOf(':');
+    if (colonIndex <= 0) continue;
+
+    const key = trimmed.slice(0, colonIndex).trim();
+    const value = trimmed.slice(colonIndex + 1).trim();
+    currentArg[key] = value === 'true' ? true : value === 'false' ? false : value;
+  }
+
+  return {
+    args,
+    body: body.replace(argsCommentRegex, '').trim(),
+  };
+}
+
+export function parseArgumentHint(argumentHint = '') {
+  if (!argumentHint) return [];
+
+  const args = [];
+  const tokenRegex = /<([a-z0-9_-]+)>|\[([A-Z0-9_-]+)=<value>\]/gi;
+
+  for (const match of argumentHint.matchAll(tokenRegex)) {
+    if (match[1]) {
+      args.push({ name: match[1], required: true });
+    } else if (match[2]) {
+      args.push({ name: match[2].toLowerCase(), required: false });
+    }
+  }
+
+  return args;
+}
+
+export function buildArgumentHint(args = []) {
+  return args
+    .map(arg => (arg.required ? `<${arg.name}>` : `[${arg.name.toUpperCase()}=<value>]`))
+    .join(' ');
+}
+
+/**
  * Recursively read all .md files from a directory
  */
 export function readFilesRecursive(dir, fileList = []) {
@@ -123,6 +189,12 @@ export function readSourceFiles(rootDir) {
         if (fs.existsSync(skillMdPath)) {
           const content = fs.readFileSync(skillMdPath, 'utf-8');
           const { frontmatter, body } = parseFrontmatter(content);
+          const extracted = extractSkillArgsMetadata(body);
+          const args = frontmatter.args?.length
+            ? frontmatter.args
+            : extracted.args.length
+              ? extracted.args
+              : parseArgumentHint(frontmatter['argument-hint']);
 
           // Read reference files if they exist
           const references = [];
@@ -148,9 +220,10 @@ export function readSourceFiles(rootDir) {
             metadata: frontmatter.metadata || null,
             allowedTools: frontmatter['allowed-tools'] || '',
             userInvocable: frontmatter['user-invocable'] === true || frontmatter['user-invocable'] === 'true',
-            args: frontmatter.args || [],
+            args,
+            argumentHint: frontmatter['argument-hint'] || buildArgumentHint(args),
             context: frontmatter.context || null,
-            body,
+            body: extracted.body,
             filePath: skillMdPath,
             references
           });

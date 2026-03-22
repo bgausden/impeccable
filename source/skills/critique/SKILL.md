@@ -1,12 +1,14 @@
 ---
 name: critique
 description: Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback.
-args:
-  - name: area
-    description: The feature or area to critique (optional)
-    required: false
+argument-hint: [AREA=<value>]
 user-invocable: true
 ---
+<!-- impeccable-args
+- name: area
+  description: The feature or area to critique (optional)
+  required: false
+-->
 
 ## MANDATORY PREPARATION
 

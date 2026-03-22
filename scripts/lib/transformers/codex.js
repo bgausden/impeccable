@@ -1,11 +1,11 @@
 import path from 'path';
-import { cleanDir, ensureDir, writeFile, generateYamlFrontmatter, replacePlaceholders, prefixSkillReferences } from '../utils.js';
+import { cleanDir, ensureDir, writeFile, generateYamlFrontmatter, replacePlaceholders, prefixSkillReferences, buildArgumentHint } from '../utils.js';
 
 /**
  * Codex Transformer (Skills Only)
  *
  * All skills output to .codex/skills/{name}/SKILL.md
- * Frontmatter: name, description, argument-hint (from args for user-invocable)
+ * Frontmatter: name, description, argument-hint for user-invocable skills
  * For user-invocable skills: {{argname}} becomes $ARGNAME in body
  *
  * @param {Array} skills - All skills (including user-invocable ones)
@@ -35,12 +35,8 @@ export function transformCodex(skills, distDir, patterns = null, options = {}) {
       description: skill.description,
     };
 
-    // Build argument-hint from args array for user-invocable skills
-    if (skill.userInvocable && skill.args && skill.args.length > 0) {
-      const hints = skill.args.map(arg => {
-        return arg.required ? `<${arg.name}>` : `[${arg.name.toUpperCase()}=<value>]`;
-      });
-      frontmatterObj['argument-hint'] = hints.join(' ');
+    if (skill.userInvocable && (skill.argumentHint || (skill.args && skill.args.length > 0))) {
+      frontmatterObj['argument-hint'] = skill.argumentHint || buildArgumentHint(skill.args);
     }
     if (skill.license) frontmatterObj.license = skill.license;
 

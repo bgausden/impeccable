@@ -4,17 +4,17 @@ Documentation for contributors to Impeccable.
 
 ## Architecture
 
-This repository uses a **feature-rich source format** that transforms into provider-specific formats. We chose "Option A" architecture: maintain full metadata in source files and downgrade for providers with limited support (like Cursor), rather than limiting everyone to the lowest common denominator.
+This repository uses a **feature-rich source format** that transforms into provider-specific formats. We chose "Option A" architecture: maintain rich metadata in source files and downgrade for providers with limited support (like Cursor), rather than limiting everyone to the lowest common denominator.
 
 ### Why This Approach?
 
 Different providers have different capabilities:
 - **Claude Code, OpenCode**: Full metadata — args, user-invocable, allowed-tools, license, compatibility
-- **Codex, Agents**: Args converted to `argument-hint` format
+- **Codex, Agents**: `argument-hint` frontmatter
 - **Gemini**: Minimal frontmatter, `{{arg}}` placeholders become `{{args}}`
 - **Cursor, Kiro, Pi**: Basic frontmatter (name, description, license/compatibility)
 
-By maintaining rich source files, we preserve maximum functionality where supported while still providing working (if simpler) versions for all providers.
+Source skills now keep Copilot-safe frontmatter for user-invocable skills (`argument-hint`) and store richer arg metadata in a leading `<!-- impeccable-args -->` comment in the body. The build strips that comment from generated output and reconstructs structured args where supported.
 
 ## Source Format
 
@@ -24,9 +24,17 @@ By maintaining rich source files, we preserve maximum functionality where suppor
 ---
 name: skill-name
 description: What this skill provides
+argument-hint: [TARGET=<value>]
+user-invocable: true
 license: License info (optional)
 compatibility: Environment requirements (optional)
 ---
+
+<!-- impeccable-args
+- name: target
+  description: What to operate on
+  required: false
+-->
 
 Your skill instructions here...
 ```
@@ -35,16 +43,20 @@ Your skill instructions here...
 - `name` (required): Skill identifier (1-64 chars, lowercase/numbers/hyphens)
 - `description` (required): What the skill provides (1-1024 chars)
 - `user-invocable` (optional): Boolean — if `true`, the skill can be invoked as a slash command
-- `args` (optional): Array of argument objects (for user-invocable skills)
-  - `name`: Argument identifier
-  - `description`: What it's for
-  - `required`: Boolean (defaults to false)
+- `argument-hint` (optional): Flat hint string for user-invocable skills, compatible with Copilot/Agents parsers
 - `license` (optional): License/attribution info
 - `compatibility` (optional): Environment requirements (1-500 chars)
 - `metadata` (optional): Arbitrary key-value pairs
 - `allowed-tools` (optional, experimental): Pre-approved tools list
 
 **Body**: The skill instructions for the LLM.
+
+**Optional body metadata for user-invocable skills**:
+- Leading `<!-- impeccable-args ... -->` comment: Rich arg metadata used by the build to recreate structured `args` arrays for providers that support them
+- Inside the comment:
+  - `name`: Argument identifier
+  - `description`: What it's for
+  - `required`: Boolean (defaults to false)
 
 ## Building
 
@@ -91,11 +103,13 @@ All providers output skills to `dist/{provider}/.{config}/skills/{name}/SKILL.md
 ### Claude Code (Full Featured)
 - Output: `dist/claude-code/.claude/skills/{name}/SKILL.md`
 - Frontmatter: name, description, user-invocable, args, license, compatibility, metadata, allowed-tools
+- Reconstructs structured `args` from `<!-- impeccable-args -->`
 - Preserves `{{arg}}` placeholders in body
 
 ### OpenCode (Full Featured)
 - Output: `dist/opencode/.opencode/skills/{name}/SKILL.md`
 - Frontmatter: name, description, user-invocable, args, license, compatibility, metadata, allowed-tools
+- Reconstructs structured `args` from `<!-- impeccable-args -->`
 - Same format as Claude Code
 
 ### Gemini CLI
@@ -111,7 +125,7 @@ All providers output skills to `dist/{provider}/.{config}/skills/{name}/SKILL.md
 ### Agents (VS Code Copilot, Antigravity)
 - Output: `dist/agents/.agents/skills/{name}/SKILL.md`
 - Frontmatter: name, description, user-invocable, argument-hint
-- Args converted to `argument-hint` format (e.g., `<target> [FORMAT=<value>]`)
+- Uses source `argument-hint` directly (e.g., `<target> [FORMAT=<value>]`)
 
 ### Kiro
 - Output: `dist/kiro/.kiro/skills/{name}/SKILL.md`
@@ -167,10 +181,10 @@ The build system uses a modular architecture under `scripts/`:
 - `readSourceFiles()`: Reads all skill directories from `source/skills/`
 - `replacePlaceholders()`: Substitutes `{{model}}`, `{{config_file}}`, etc. per provider
 - `transformCursor()`: Basic frontmatter (name, description, license)
-- `transformClaudeCode()`: Full metadata with args and allowed-tools
+- `transformClaudeCode()`: Full metadata with reconstructed args and allowed-tools
 - `transformGemini()`: Minimal frontmatter, `{{arg}}` → `{{args}}`
-- `transformCodex()`: Args → argument-hint, `{{arg}}` → `$ARGNAME`
-- `transformAgents()`: Args → argument-hint, user-invocable flag
+- `transformCodex()`: Emits argument-hint, `{{arg}}` → `$ARGNAME`
+- `transformAgents()`: Emits argument-hint and user-invocable flag
 - `transformKiro()`: Basic frontmatter with license/compatibility/metadata
 - `transformOpenCode()`: Full metadata (same as Claude Code)
 - `transformPi()`: Basic frontmatter with license/compatibility/metadata
@@ -262,4 +276,3 @@ impeccable/
 ## Questions?
 
 Open an issue or submit a PR!
-

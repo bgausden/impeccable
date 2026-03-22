@@ -1,12 +1,14 @@
 ---
 name: animate
 description: Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight.
-args:
-  - name: target
-    description: The feature or component to animate (optional)
-    required: false
+argument-hint: [TARGET=<value>]
 user-invocable: true
 ---
+<!-- impeccable-args
+- name: target
+  description: The feature or component to animate (optional)
+  required: false
+-->
 
 Analyze a feature and strategically add animations and micro-interactions that enhance understanding, provide feedback, and create delight.
 

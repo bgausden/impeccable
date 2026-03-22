@@ -1,11 +1,11 @@
 import path from 'path';
-import { cleanDir, ensureDir, writeFile, generateYamlFrontmatter, replacePlaceholders, prefixSkillReferences } from '../utils.js';
+import { cleanDir, ensureDir, writeFile, generateYamlFrontmatter, replacePlaceholders, prefixSkillReferences, buildArgumentHint } from '../utils.js';
 
 /**
  * Agents Transformer (VS Code Copilot + Antigravity)
  *
  * All skills output to .agents/skills/{name}/SKILL.md
- * Frontmatter: name, description, user-invocable (if true), argument-hint (from args)
+ * Frontmatter: name, description, user-invocable (if true), argument-hint
  *
  * @param {Array} skills - All skills (including user-invocable ones)
  * @param {string} distDir - Distribution output directory
@@ -34,12 +34,8 @@ export function transformAgents(skills, distDir, patterns = null, options = {}) 
 
     if (skill.userInvocable) frontmatterObj['user-invocable'] = true;
 
-    // Build argument-hint from args array for user-invocable skills
-    if (skill.userInvocable && skill.args && skill.args.length > 0) {
-      const hints = skill.args.map(arg => {
-        return arg.required ? `<${arg.name}>` : `[${arg.name.toUpperCase()}=<value>]`;
-      });
-      frontmatterObj['argument-hint'] = hints.join(' ');
+    if (skill.userInvocable && (skill.argumentHint || (skill.args && skill.args.length > 0))) {
+      frontmatterObj['argument-hint'] = skill.argumentHint || buildArgumentHint(skill.args);
     }
 
     const frontmatter = generateYamlFrontmatter(frontmatterObj);

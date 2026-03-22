@@ -1,12 +1,14 @@
 ---
 name: distill
 description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean.
-args:
-  - name: target
-    description: The feature or component to distill (optional)
-    required: false
+argument-hint: [TARGET=<value>]
 user-invocable: true
 ---
+<!-- impeccable-args
+- name: target
+  description: The feature or component to distill (optional)
+  required: false
+-->
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.
 

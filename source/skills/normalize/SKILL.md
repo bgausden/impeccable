@@ -1,12 +1,14 @@
 ---
 name: normalize
 description: Normalize design to match your design system and ensure consistency
-args:
-  - name: feature
-    description: The page, route, or feature to normalize (optional)
-    required: false
+argument-hint: [FEATURE=<value>]
 user-invocable: true
 ---
+<!-- impeccable-args
+- name: feature
+  description: The page, route, or feature to normalize (optional)
+  required: false
+-->
 
 Analyze and redesign the feature to perfectly match our design system standards, aesthetics, and established patterns.
 

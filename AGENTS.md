@@ -132,8 +132,16 @@ Command prompt here. Use {{argname}} placeholders for arguments.
 ---
 name: skill-name
 description: Clear description of what this skill provides
+argument-hint: [TARGET=<value>]   # Optional, for user-invocable skills
+user-invocable: true              # Optional
 license: License info (optional)
 ---
+
+<!-- impeccable-args
+- name: target
+  description: What to operate on
+  required: false
+-->
 
 Skill instructions for the LLM here.
 ```
@@ -247,4 +255,3 @@ End users can copy files directly without needing build tools.
 - [Gemini CLI GEMINI.md](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md)
 - [Codex CLI Slash Commands](https://developers.openai.com/codex/guides/slash-commands)
 - [Codex CLI Skills](https://developers.openai.com/codex/skills/)
-
