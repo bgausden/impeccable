@@ -82,8 +82,8 @@ npm run rebuild
 Tagged releases automatically publish the generated ZIP bundles to GitHub Releases.
 
 ```bash
-git tag v1.5.1
-git push origin v1.5.1
+git tag v1.5.1-bgausden.1
+git push origin v1.5.1-bgausden.1
 ```
 
 The release workflow runs `npm ci`, `npm test`, and `npm run build`, then uploads `dist/*.zip` to the matching GitHub Release. You can also run the workflow manually for an existing tag from the Actions tab.
