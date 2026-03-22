@@ -158,5 +158,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`🎨 impeccable.style running at http://localhost:${port}`);
+  console.log(`🎨 Impeccable local site running at http://localhost:${port}`);
 });

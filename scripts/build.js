@@ -12,7 +12,7 @@
  * - Agents: .agents/skills/ (VS Code Copilot + Antigravity)
  *
  * Also assembles a universal ZIP containing all providers,
- * and builds Tailwind CSS for production deployment.
+ * and builds Tailwind CSS plus a local static preview site.
  */
 
 import path from 'path';
@@ -190,7 +190,7 @@ function assembleUniversal(distDir, suffix = '') {
   const prefixNote = suffix ? '\nSkills in this bundle are prefixed with i- (e.g. /i-audit) to avoid conflicts.\n' : '';
   fs.writeFileSync(path.join(universalDir, 'README.txt'),
 `Impeccable — Design fluency for AI harnesses
-https://impeccable.style
+https://github.com/pbakaus/impeccable
 ${prefixNote}
 This folder contains skills for all supported tools:
 
@@ -213,132 +213,6 @@ These are hidden folders (dotfiles) — press Cmd+Shift+. in Finder to see them.
 }
 
 /**
- * Generate static API data for Cloudflare Pages deployment.
- * Pre-builds all API responses as JSON files so they can be served
- * as static assets via _redirects rewrites (no function invocations needed).
- */
-function generateApiData(buildDir, skills, patterns) {
-  const apiDir = path.join(buildDir, '_data', 'api');
-  fs.mkdirSync(apiDir, { recursive: true });
-
-  // skills.json
-  const skillsData = skills.map(s => ({
-    id: path.basename(path.dirname(s.filePath)),
-    name: s.name,
-    description: s.description,
-    userInvocable: s.userInvocable,
-  }));
-  fs.writeFileSync(path.join(apiDir, 'skills.json'), JSON.stringify(skillsData));
-
-  // commands.json (user-invocable skills only)
-  const commandsData = skillsData.filter(s => s.userInvocable);
-  fs.writeFileSync(path.join(apiDir, 'commands.json'), JSON.stringify(commandsData));
-
-  // patterns.json
-  fs.writeFileSync(path.join(apiDir, 'patterns.json'), JSON.stringify(patterns));
-
-  // command-source/{id}.json (one per skill)
-  const cmdSourceDir = path.join(apiDir, 'command-source');
-  fs.mkdirSync(cmdSourceDir, { recursive: true });
-  for (const skill of skills) {
-    const id = path.basename(path.dirname(skill.filePath));
-    const content = fs.readFileSync(skill.filePath, 'utf-8');
-    fs.writeFileSync(
-      path.join(cmdSourceDir, `${id}.json`),
-      JSON.stringify({ content })
-    );
-  }
-
-  console.log(`✓ Generated static API data (${skillsData.length} skills, ${commandsData.length} commands)`);
-}
-
-/**
- * Copy dist files to build output for Cloudflare Pages Functions access.
- * Download functions use env.ASSETS.fetch() to read these files.
- */
-function copyDistToBuild(distDir, buildDir) {
-  const destDir = path.join(buildDir, '_data', 'dist');
-  copyDirSync(distDir, destDir);
-  console.log('✓ Copied dist files to build output');
-}
-
-/**
- * Generate Cloudflare Pages config files (_headers, _redirects)
- */
-function generateCFConfig(buildDir) {
-  // _headers: security + cache headers
-  const headers = `/*
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-
-# HTML pages: browser always revalidates, CDN caches 1h
-/*.html
-  Cache-Control: public, max-age=0, s-maxage=3600, stale-while-revalidate=600
-
-# Static JS and CSS: short browser cache + stale revalidation
-/js/*.js
-  Cache-Control: public, max-age=3600, stale-while-revalidate=600
-
-/css/*.css
-  Cache-Control: public, max-age=3600, stale-while-revalidate=600
-
-# Static images and logos: 1 week + 1 day stale
-/assets/*.png
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/assets/*.svg
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/assets/*.webp
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/antipattern-images/*
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-# Root static assets (favicon, og-image, etc.)
-/favicon.svg
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/og-image.jpg
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/apple-touch-icon.png
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-# ZIP downloads: 1h cache
-/dist/*.zip
-  Cache-Control: public, max-age=3600, stale-while-revalidate=600
-
-# API routes: CDN caches 24h
-/api/*
-  Cache-Control: public, s-maxage=86400, stale-while-revalidate=3600
-
-/_data/api/*
-  Cache-Control: public, s-maxage=86400, stale-while-revalidate=3600
-`;
-  fs.writeFileSync(path.join(buildDir, '_headers'), headers);
-
-  // _redirects: rewrite JSON API routes to static files (200 = rewrite, not redirect)
-  const redirects = `/api/skills /_data/api/skills.json 200
-/api/commands /_data/api/commands.json 200
-/api/patterns /_data/api/patterns.json 200
-/api/command-source/:id /_data/api/command-source/:id.json 200
-`;
-  fs.writeFileSync(path.join(buildDir, '_redirects'), redirects);
-
-  // _routes.json: tell Cloudflare Pages which paths invoke Functions
-  // Without this, the SPA fallback serves index.html for function routes
-  const routes = {
-    version: 1,
-    include: ['/api/download/*'],
-    exclude: [],
-  };
-  fs.writeFileSync(path.join(buildDir, '_routes.json'), JSON.stringify(routes, null, 2));
-
-  console.log('✓ Generated Cloudflare Pages config (_headers, _redirects, _routes.json)');
-}
-
-/**
  * Main build process
  */
 async function build() {
@@ -349,7 +223,6 @@ async function build() {
 
   // Copy HTML, JS, assets, and compiled CSS into build/
   await buildStaticSite();
-  const buildDir = path.join(ROOT_DIR, 'build');
 
   // Read source files (unified skills architecture)
   const { skills } = readSourceFiles(ROOT_DIR);
@@ -386,11 +259,6 @@ async function build() {
 
   // Create ZIP bundles (individual + universal)
   await createAllZips(DIST_DIR);
-
-  // Generate static API data and Cloudflare Pages config
-  generateApiData(buildDir, skills, patterns);
-  copyDistToBuild(DIST_DIR, buildDir);
-  generateCFConfig(buildDir);
 
   // Copy all provider outputs to project root for local testing
   const providers = [

@@ -178,7 +178,7 @@ async function generateOgImage() {
           <span class="stat-label">anti-patterns</span>
         </div>
       </div>
-      <div class="url">impeccable.style</div>
+      <div class="url">github.com/pbakaus/impeccable</div>
     </div>
   </div>
 </body>

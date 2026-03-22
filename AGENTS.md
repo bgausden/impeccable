@@ -54,13 +54,7 @@ impeccable/
 │       └── .codex/
 │           ├── prompts/*.md
 │           └── skills/*/SKILL.md
-├── api/                         # Vercel Functions (production)
-│   ├── skills.js                # GET /api/skills
-│   ├── commands.js              # GET /api/commands
-│   └── download/
-│       ├── [type]/[provider]/[id].js   # Individual downloads
-│       └── bundle/[provider].js        # Bundle downloads
-├── public/                      # Website for impeccable.style
+├── public/                      # Local preview site
 │   ├── index.html               # Main page
 │   ├── css/                     # Modular CSS (9 files)
 │   │   ├── main.css             # Entry point with imports
@@ -86,20 +80,18 @@ impeccable/
 └── package.json                 # npm scripts
 ```
 
-## Website (impeccable.style)
+## Local Preview Site
 
 **Tech Stack:**
 - Vanilla JavaScript (no frameworks)
 - Modern CSS with Tailwind CLI plus native CSS features (nesting, OKLCH colors, @import)
 - **Local Development**: Node.js server with native routes (`server/index.js`)
-- **Production**: Cloudflare Pages static build plus download functions
-- Deployed on Cloudflare Pages
+- **Static Output**: `npm run build` copies the preview site to `build/`
 
-**Dual Setup:**
-- `/api` directory contains individual Vercel Functions for production
-- `/server` directory contains monolithic Node.js server for local development
-- `/server/lib/api-handlers.js` contains shared logic used by both
-- Zero duplication: API functions and dev server import the same handlers
+**Preview Setup:**
+- `/server` contains the Node.js dev server used for local development
+- `/server/lib/api-handlers.js` contains the shared handlers for preview API routes
+- `/public` contains the static site assets and demos
 
 **Design:**
 - Editorial precision aesthetic
@@ -108,7 +100,7 @@ impeccable/
 - Editorial sidebar layout (title left, content right)
 - Modular CSS architecture (9 files)
 
-**API Endpoints** (Vercel Functions):
+**API Endpoints** (local dev server):
 - `/` - Homepage (static HTML)
 - `/api/skills` - JSON list of all skills
 - `/api/commands` - JSON list of all commands
@@ -218,7 +210,7 @@ End users can copy files directly without needing build tools.
 
 ### Why npm + tsx?
 - Familiar workflow for contributors
-- Works cleanly with Node.js tooling and Cloudflare Pages
+- Works cleanly with Node.js tooling
 - `tsx` runs ESM scripts without extra build config
 - Keeps local development close to production behavior
 

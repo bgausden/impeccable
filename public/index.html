@@ -1,28 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-TEXGHC7V34"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-TEXGHC7V34');
-  </script>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Impeccable: The missing upgrade to Anthropic's frontend-design skill</title>
   <meta name="description" content="1 skill, 20 commands, and curated anti-patterns for impeccable frontend design. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, VS Code Copilot, and more.">
   <meta name="theme-color" content="#1a1a1a">
-  <link rel="canonical" href="https://impeccable.style">
 
   <!-- OpenGraph -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://impeccable.style">
   <meta property="og:title" content="Impeccable: Design skills for AI harnesses">
   <meta property="og:description" content="1 skill, 20 commands, and curated anti-patterns for impeccable frontend design. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, VS Code Copilot, and more.">
-  <meta property="og:image" content="https://impeccable.style/og-image.jpg">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
@@ -30,7 +18,6 @@
   <meta name="twitter:creator" content="@pbakaus">
   <meta name="twitter:title" content="Impeccable: Design skills for AI harnesses">
   <meta name="twitter:description" content="1 skill, 20 commands, and curated anti-patterns for impeccable frontend design.">
-  <meta name="twitter:image" content="https://impeccable.style/og-image.jpg">
 
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -200,7 +187,7 @@
       <div class="section-header" data-reveal>
         <span class="section-number">04</span>
         <h2 class="section-title">Install</h2>
-        <p class="section-subtitle">One command. Every provider.</p>
+        <p class="section-subtitle">One command, or build and copy the local artifacts.</p>
       </div>
 
       <!-- Primary install: glass terminal style -->
@@ -244,23 +231,33 @@
             </div>
             <div class="install-terminal-divider"></div>
             <div class="install-terminal-row">
-              <span class="install-terminal-label">Manual</span>
-              <div class="install-terminal-cmd install-terminal-cmd--download">
-                <button class="btn btn-secondary btn-small" data-bundle="universal" aria-label="Download universal ZIP">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              <span class="install-terminal-label">Local build</span>
+              <div class="install-terminal-cmd">
+                <span class="terminal-prompt">$</span>
+                <code>npm install &amp;&amp; npm run build</code>
+                <button class="copy-btn" aria-label="Copy command" data-copy="npm install && npm run build">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
                   </svg>
-                  <span>Download universal ZIP</span>
                 </button>
-                <label class="prefix-toggle">
-                  <input type="checkbox" id="prefix-toggle" />
-                  <span class="prefix-toggle-slider"></span>
-                  <span class="prefix-toggle-label">
-                    Prefix with <code>/i-</code>
-                  </span>
-                </label>
               </div>
-              <span class="install-terminal-note">Contains all provider directories — extract to project root</span>
+              <span class="install-terminal-note">Builds provider outputs in <code>dist/</code> plus universal bundles and ZIPs</span>
+            </div>
+            <div class="install-terminal-divider"></div>
+            <div class="install-terminal-row">
+              <span class="install-terminal-label">Manual copy</span>
+              <div class="install-terminal-cmd">
+                <span class="terminal-prompt">$</span>
+                <code>cp -r dist/universal/. your-project/</code>
+                <button class="copy-btn" aria-label="Copy command" data-copy="cp -r dist/universal/. your-project/">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+              <span class="install-terminal-note">Use <code>dist/universal-prefixed/</code> if you want the <code>/i-</code> prefixed variants</span>
             </div>
           </div>
         </div>
@@ -313,7 +310,7 @@
         </div>
       </div>
 
-      <p class="download-tip" data-reveal>Once installed, keep the <a href="/cheatsheet">command cheatsheet</a> handy for quick reference. To update, run <code>npx skills update</code>.</p>
+      <p class="download-tip" data-reveal>Once installed, keep the <a href="/cheatsheet">command cheatsheet</a> handy for quick reference. To update, run <code>npx skills update</code> or pull the latest upstream changes and rebuild.</p>
     </section>
 
     <!-- 5. CHANGELOG -->
@@ -408,10 +405,10 @@
 
       <div class="faq-list" data-reveal>
         <details class="faq-item">
-          <summary class="faq-question">Where do I put the downloaded files?</summary>
+          <summary class="faq-question">Where do I put the installed or built files?</summary>
           <div class="faq-answer">
             <p>The easiest way is <code>npx skills add pbakaus/impeccable</code> — it auto-detects your AI harness and places files correctly.</p>
-            <p>If you downloaded the <strong>universal ZIP</strong>, extract it to your <strong>project root</strong> (same level as your <code>package.json</code> or <code>src/</code> folder). It creates the provider directories needed by each supported tool, including <code>.cursor/</code>, <code>.claude/</code>, <code>.gemini/</code>, <code>.codex/</code>, <code>.agents/</code>, and Copilot CLI files under <code>.github/</code>.</p>
+            <p>If you built locally, copy the contents of <code>dist/universal/</code> into your <strong>project root</strong> (same level as your <code>package.json</code> or <code>src/</code> folder). It contains the provider directories needed by each supported tool, including <code>.cursor/</code>, <code>.claude/</code>, <code>.gemini/</code>, <code>.codex/</code>, <code>.agents/</code>, and Copilot CLI files under <code>.github/</code>.</p>
             <p>Project-level installation takes precedence and lets you version control your skills.</p>
           </div>
         </details>
@@ -422,7 +419,7 @@
             <ul>
               <li><strong>All tools:</strong> <code>npx skills update</code> (or <code>npx skills check</code> to see what's new first)</li>
               <li><strong>Claude Code plugin:</strong> Open <code>/plugin</code>, go to the Discover tab, and update from there</li>
-              <li><strong>Manual ZIP:</strong> Download the latest ZIP from above and extract to your project root, overwriting existing files</li>
+              <li><strong>Manual copy:</strong> Pull the latest changes, run <code>npm run build</code>, then refresh the files from <code>dist/</code> in your project</li>
             </ul>
             <p>Your <code>.impeccable.md</code> design context file (created by <code>/teach-impeccable</code>) is never overwritten — your project context is preserved across updates.</p>
           </div>
@@ -488,13 +485,13 @@
     <div class="footer-content">
       <div class="footer-brand">
         <span class="footer-logo">Impeccable</span>
-        <p class="footer-tagline">impeccable.style</p>
+        <p class="footer-tagline">Design fluency for AI harnesses</p>
       </div>
       <div class="footer-links">
         <a href="#antidote">Anti-Patterns</a>
         <a href="#commands-section">Commands</a>
         <a href="/cheatsheet">Cheatsheet</a>
-        <a href="#downloads">Downloads</a>
+        <a href="#downloads">Install</a>
         <a href="#changelog">Changelog</a>
         <a href="https://github.com/pbakaus/impeccable">GitHub</a>
       </div>

@@ -24,8 +24,6 @@
     "clean": "rm -rf dist build",
     "rebuild": "npm run clean && npm run build",
     "dev": "tsx server/index.js",
-    "preview": "npm run build && wrangler pages dev",
-    "deploy": "npm run build && wrangler pages deploy build/",
     "test": "node --test",
     "screenshot": "tsx scripts/screenshot-antipatterns.js",
     "og-image": "tsx scripts/generate-og-image.js"
@@ -33,7 +31,6 @@
   "type": "module",
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.13",
-    "tsx": "^4.20.5",
-    "wrangler": "^4.71.0"
+    "tsx": "^4.20.5"
   }
 }

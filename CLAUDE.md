@@ -17,16 +17,9 @@ The CSS architecture:
 
 ```bash
 npm run dev        # Node.js dev server at http://localhost:3000
-npm run preview    # Build + Cloudflare Pages local preview
 ```
 
-## Deployment
-
-Hosted on Cloudflare Pages. Static assets served from `build/`, API routes handled via `_redirects` rewrites (JSON) and Pages Functions (downloads).
-
-```bash
-npm run deploy     # Build + deploy to Cloudflare Pages
-```
+This fork no longer includes hosted deployment wiring. Use `npm run build` to generate the static preview site in `build/` and provider artifacts in `dist/`.
 
 ## Build System
 

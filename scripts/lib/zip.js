@@ -3,7 +3,7 @@
  *
  * Creates ZIP bundles for each provider's distribution
  * Uses archiver instead of shell `zip` for cross-platform compatibility
- * (Cloudflare Pages build environment may not have zip installed)
+ * (some CI/build environments may not have zip installed)
  */
 
 import path from 'path';
