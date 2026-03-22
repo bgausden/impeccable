@@ -1,6 +1,6 @@
 # Impeccable
 
-The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable style. Works with Cursor, Claude Code, Gemini CLI, and Codex CLI.
+The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable style. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, VS Code Copilot, and more.
 
 ## Repository Purpose
 
@@ -12,7 +12,7 @@ We use a **feature-rich source format** that gets transformed for each provider:
 
 - **Source files** (`source/`): Full metadata with YAML frontmatter, args, descriptions
 - **Build system** (`scripts/`): Transforms source → provider-specific formats
-- **Distribution** (`dist/`): Committed output files for 4 providers
+- **Distribution** (`dist/`): Committed output files for each supported provider
 
 ### Why Option A?
 
@@ -26,10 +26,11 @@ Cursor doesn't support frontmatter or arguments (lowest common denominator). Ins
 ```
 impeccable/
 ├── source/                      # EDIT THESE! Single source of truth
-│   ├── commands/                # Command definitions with frontmatter
-│   │   └── normalize.md
+│   ├── copilot-cli/             # Copilot CLI instruction sources
+│   │   ├── copilot-instructions.md
+│   │   └── instructions/*.instructions.md
 │   └── skills/                  # Skill definitions with frontmatter
-│       └── frontend-design.md
+│       └── */SKILL.md
 ├── dist/                        # Generated outputs (committed for users)
 │   ├── cursor/                  # Commands + Agent Skills
 │   │   └── .cursor/
@@ -44,6 +45,11 @@ impeccable/
 │   │   │   └── commands/*.toml
 │   │   ├── GEMINI.md
 │   │   └── GEMINI.*.md
+│   ├── copilot-cli/             # Skills + instructions for GitHub Copilot CLI
+│   │   └── .github/
+│   │       ├── skills/*/SKILL.md
+│   │       ├── copilot-instructions.md
+│   │       └── instructions/*.instructions.md
 │   └── codex/                   # Custom prompts + Agent Skills
 │       └── .codex/
 │           ├── prompts/*.md
@@ -193,6 +199,13 @@ Run: `npm run build`
   - Reference files in skill subdirectories
 - **Installation**: Extract ZIP into your project root, creates `.codex/` folder
 
+### 5. GitHub Copilot CLI
+- **Skills**: Agent Skills standard → `dist/copilot-cli/.github/skills/{name}/SKILL.md`
+- **Instructions**: Repository custom instructions → `dist/copilot-cli/.github/copilot-instructions.md`
+- **Path-specific instructions**: `dist/copilot-cli/.github/instructions/*.instructions.md`
+- **Preserves**: Skill descriptions, licenses, reference files, and provider-specific placeholder replacement
+- **Installation**: Merge the generated `.github/` contents into your project root
+
 ## Key Design Decisions
 
 ### Why commit dist/?
@@ -251,6 +264,8 @@ End users can copy files directly without needing build tools.
 - [Cursor Skills](https://cursor.com/docs/context/skills)
 - [Claude Code Slash Commands](https://code.claude.com/docs/en/slash-commands)
 - [Anthropic Skills](https://github.com/anthropics/skills)
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli)
+- [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-skills)
 - [Gemini CLI Custom Commands](https://cloud.google.com/blog/topics/developers-practitioners/gemini-cli-custom-slash-commands)
 - [Gemini CLI GEMINI.md](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md)
 - [Codex CLI Slash Commands](https://developers.openai.com/codex/guides/slash-commands)

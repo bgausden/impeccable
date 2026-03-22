@@ -1,6 +1,6 @@
 # Impeccable
 
-The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable frontend design.
+The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable frontend design. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, and more.
 
 > **Quick start:** Visit [impeccable.style](https://impeccable.style) to download ready-to-use bundles.
 
@@ -135,6 +135,16 @@ cp -r dist/claude-code/.claude your-project/
 cp -r dist/claude-code/.claude/* ~/.claude/
 ```
 
+**GitHub Copilot CLI:**
+```bash
+mkdir -p your-project/.github
+cp -r dist/copilot-cli/.github/skills your-project/.github/
+cp dist/copilot-cli/.github/copilot-instructions.md your-project/.github/
+cp -r dist/copilot-cli/.github/instructions your-project/.github/
+```
+
+> **Note:** Start `copilot` from your project root so `.github/skills` and `.github/copilot-instructions.md` are in scope. Use `/skills list` to verify installation and `/skills reload` after updating the files in a running session.
+
 **OpenCode:**
 ```bash
 cp -r dist/opencode/.opencode your-project/
@@ -190,6 +200,7 @@ Most commands accept an optional argument to focus on a specific area:
 - [Pi](https://pi.dev)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex CLI](https://github.com/openai/codex)
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli)
 - [VS Code Copilot](https://code.visualstudio.com)
 - [Kiro](https://kiro.dev)
 

@@ -36,6 +36,7 @@ describe('build orchestration', () => {
       transformClaudeCode() {},
       transformGemini() {},
       transformCodex() {},
+      transformCopilotCli() {},
     };
 
     // Simulate the build process
@@ -48,6 +49,7 @@ describe('build orchestration', () => {
     fakeTransformers.transformClaudeCode(skills, DIST_DIR, patterns);
     fakeTransformers.transformGemini(skills, DIST_DIR, patterns);
     fakeTransformers.transformCodex(skills, DIST_DIR, patterns);
+    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
 
     expect(calls).toEqual([['readSourceFiles', ROOT_DIR]]);
   });
@@ -80,6 +82,9 @@ describe('build orchestration', () => {
       transformCodex(...args) {
         transformerCalls.push(['codex', ...args]);
       },
+      transformCopilotCli(...args) {
+        transformerCalls.push(['copilot-cli', ...args]);
+      },
     };
 
     const ROOT_DIR = TEST_DIR;
@@ -91,12 +96,14 @@ describe('build orchestration', () => {
     fakeTransformers.transformClaudeCode(sourceFiles.skills, DIST_DIR, patternData);
     fakeTransformers.transformGemini(sourceFiles.skills, DIST_DIR, patternData);
     fakeTransformers.transformCodex(sourceFiles.skills, DIST_DIR, patternData);
+    fakeTransformers.transformCopilotCli(sourceFiles.skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
 
     expect(transformerCalls).toEqual([
       ['cursor', skills, DIST_DIR, patterns],
       ['claude-code', skills, DIST_DIR, patterns],
       ['gemini', skills, DIST_DIR, patterns],
       ['codex', skills, DIST_DIR, patterns],
+      ['copilot-cli', skills, DIST_DIR, patterns, { rootDir: ROOT_DIR }],
     ]);
   });
 
@@ -125,6 +132,9 @@ describe('build orchestration', () => {
       transformCodex(...args) {
         transformerCalls.push(['codex', ...args]);
       },
+      transformCopilotCli(...args) {
+        transformerCalls.push(['copilot-cli', ...args]);
+      },
     };
 
     const ROOT_DIR = TEST_DIR;
@@ -136,12 +146,14 @@ describe('build orchestration', () => {
     fakeTransformers.transformClaudeCode(skills, DIST_DIR, patternData);
     fakeTransformers.transformGemini(skills, DIST_DIR, patternData);
     fakeTransformers.transformCodex(skills, DIST_DIR, patternData);
+    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
 
     expect(transformerCalls).toEqual([
       ['cursor', [], DIST_DIR, patterns],
       ['claude-code', [], DIST_DIR, patterns],
       ['gemini', [], DIST_DIR, patterns],
       ['codex', [], DIST_DIR, patterns],
+      ['copilot-cli', [], DIST_DIR, patterns, { rootDir: ROOT_DIR }],
     ]);
   });
 
@@ -158,6 +170,8 @@ This is a test skill body.`;
     const skillDir = path.join(TEST_DIR, 'source/skills/test-skill');
     fs.mkdirSync(skillDir, { recursive: true });
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
+    fs.mkdirSync(path.join(TEST_DIR, 'source/copilot-cli/instructions'), { recursive: true });
+    fs.writeFileSync(path.join(TEST_DIR, 'source/copilot-cli/copilot-instructions.md'), 'Repo instructions');
 
     // Run the build process
     const DIST_DIR = path.join(TEST_DIR, 'dist');
@@ -168,6 +182,7 @@ This is a test skill body.`;
     transformers.transformClaudeCode(skills, DIST_DIR, patterns);
     transformers.transformGemini(skills, DIST_DIR, patterns);
     transformers.transformCodex(skills, DIST_DIR, patterns);
+    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
 
     // Verify Cursor outputs
     expect(fs.existsSync(path.join(DIST_DIR, 'cursor/.cursor/skills/test-skill/SKILL.md'))).toBe(true);
@@ -180,6 +195,8 @@ This is a test skill body.`;
 
     // Verify Codex outputs
     expect(fs.existsSync(path.join(DIST_DIR, 'codex/.codex/skills/test-skill/SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/skills/test-skill/SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/copilot-instructions.md'))).toBe(true);
   });
 
   test('integration: verify transformations are correct', () => {
@@ -207,6 +224,7 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     transformers.transformClaudeCode(skills, DIST_DIR, patterns);
     transformers.transformGemini(skills, DIST_DIR, patterns);
     transformers.transformCodex(skills, DIST_DIR, patterns);
+    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
 
     // Verify Cursor: full frontmatter with user-invocable
     const cursorContent = fs.readFileSync(path.join(DIST_DIR, 'cursor/.cursor/skills/audit/SKILL.md'), 'utf-8');
@@ -234,6 +252,14 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     const codexContent = fs.readFileSync(path.join(DIST_DIR, 'codex/.codex/skills/audit/SKILL.md'), 'utf-8');
     expect(codexContent).toContain('$TARGET'); // Replaced for user-invocable in Codex
     expect(codexContent).toContain('GPT');
+
+    // Verify Copilot CLI: skill in .github/skills without command metadata
+    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/skills/audit/SKILL.md'))).toBe(true);
+    const copilotContent = fs.readFileSync(path.join(DIST_DIR, 'copilot-cli/.github/skills/audit/SKILL.md'), 'utf-8');
+    expect(copilotContent).toContain('name: audit');
+    expect(copilotContent).toContain('{{target}}');
+    expect(copilotContent).toContain('GitHub Copilot');
+    expect(copilotContent).not.toContain('user-invocable: true');
   });
 
   test('integration: multiple skills', () => {
@@ -255,6 +281,7 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     transformers.transformClaudeCode(skills, DIST_DIR, patterns);
     transformers.transformGemini(skills, DIST_DIR, patterns);
     transformers.transformCodex(skills, DIST_DIR, patterns);
+    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
 
     // Verify all files exist
     expect(fs.existsSync(path.join(DIST_DIR, 'cursor/.cursor/skills/skill1/SKILL.md'))).toBe(true);
@@ -286,6 +313,9 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
       transformCodex() {
       callOrder.push('codex');
       },
+      transformCopilotCli() {
+      callOrder.push('copilot-cli');
+      },
     };
 
     const ROOT_DIR = TEST_DIR;
@@ -297,8 +327,9 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     fakeTransformers.transformClaudeCode(skills, DIST_DIR, patterns);
     fakeTransformers.transformGemini(skills, DIST_DIR, patterns);
     fakeTransformers.transformCodex(skills, DIST_DIR, patterns);
+    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
 
-    expect(callOrder).toEqual(['cursor', 'claude-code', 'gemini', 'codex']);
+    expect(callOrder).toEqual(['cursor', 'claude-code', 'gemini', 'codex', 'copilot-cli']);
   });
 
   test('should include agents and kiro transformers', () => {
@@ -313,5 +344,19 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     // Verify outputs
     expect(fs.existsSync(path.join(DIST_DIR, 'agents/.agents/skills'))).toBe(true);
     expect(fs.existsSync(path.join(DIST_DIR, 'kiro/.kiro/skills'))).toBe(true);
+  });
+
+  test('should include copilot-cli transformer', () => {
+    fs.mkdirSync(path.join(TEST_DIR, 'source/copilot-cli/instructions'), { recursive: true });
+    fs.writeFileSync(path.join(TEST_DIR, 'source/copilot-cli/copilot-instructions.md'), 'Repo instructions');
+
+    const { skills } = utils.readSourceFiles(TEST_DIR);
+    const patterns = utils.readPatterns(TEST_DIR);
+    const DIST_DIR = path.join(TEST_DIR, 'dist');
+
+    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
+
+    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/skills'))).toBe(true);
+    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/copilot-instructions.md'))).toBe(true);
   });
 });

@@ -8,6 +8,7 @@
  * - Claude Code: .claude/skills/
  * - Gemini: .gemini/skills/
  * - Codex: .codex/skills/
+ * - GitHub Copilot CLI: .github/skills/
  * - Agents: .agents/skills/ (VS Code Copilot + Antigravity)
  *
  * Also assembles a universal ZIP containing all providers,
@@ -23,6 +24,7 @@ import {
   transformClaudeCode,
   transformGemini,
   transformCodex,
+  transformCopilotCli,
   transformAgents,
   transformKiro,
   transformOpenCode,
@@ -45,6 +47,34 @@ function copyDirSync(src, dest) {
     } else {
       fs.copyFileSync(srcPath, destPath);
     }
+  }
+}
+
+function syncCopilotCliToRoot(distDir, rootDir) {
+  const copilotSrcDir = path.join(distDir, 'copilot-cli', '.github');
+
+  if (!fs.existsSync(copilotSrcDir)) {
+    return;
+  }
+
+  const githubDestDir = path.join(rootDir, '.github');
+  fs.mkdirSync(githubDestDir, { recursive: true });
+
+  const skillsSrc = path.join(copilotSrcDir, 'skills');
+  const skillsDest = path.join(githubDestDir, 'skills');
+  if (fs.existsSync(skillsDest)) {
+    fs.rmSync(skillsDest, { recursive: true, force: true });
+  }
+  copyDirSync(skillsSrc, skillsDest);
+
+  const copilotInstructionsSrc = path.join(copilotSrcDir, 'copilot-instructions.md');
+  if (fs.existsSync(copilotInstructionsSrc)) {
+    fs.copyFileSync(copilotInstructionsSrc, path.join(githubDestDir, 'copilot-instructions.md'));
+  }
+
+  const instructionsSrc = path.join(copilotSrcDir, 'instructions');
+  if (fs.existsSync(instructionsSrc)) {
+    copyDirSync(instructionsSrc, path.join(githubDestDir, 'instructions'));
   }
 }
 
@@ -140,6 +170,7 @@ function assembleUniversal(distDir, suffix = '') {
     { provider: 'claude-code', configDir: '.claude' },
     { provider: 'gemini', configDir: '.gemini' },
     { provider: 'codex', configDir: '.codex' },
+    { provider: 'copilot-cli', configDir: '.github' },
     { provider: 'agents', configDir: '.agents' },
     { provider: 'kiro', configDir: '.kiro' },
     { provider: 'opencode', configDir: '.opencode' },
@@ -167,6 +198,7 @@ This folder contains skills for all supported tools:
   .claude/    → Claude Code
   .gemini/    → Gemini CLI
   .codex/     → Codex CLI
+  .github/    → GitHub Copilot CLI
   .agents/    → VS Code Copilot, Antigravity
   .kiro/      → Kiro
   .opencode/  → OpenCode
@@ -330,6 +362,7 @@ async function build() {
   transformClaudeCode(skills, DIST_DIR, patterns);
   transformGemini(skills, DIST_DIR, patterns);
   transformCodex(skills, DIST_DIR, patterns);
+  transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
   transformAgents(skills, DIST_DIR, patterns);
   transformKiro(skills, DIST_DIR, patterns);
   transformOpenCode(skills, DIST_DIR, patterns);
@@ -341,6 +374,7 @@ async function build() {
   transformClaudeCode(skills, DIST_DIR, patterns, prefixOptions);
   transformGemini(skills, DIST_DIR, patterns, prefixOptions);
   transformCodex(skills, DIST_DIR, patterns, prefixOptions);
+  transformCopilotCli(skills, DIST_DIR, patterns, { ...prefixOptions, rootDir: ROOT_DIR });
   transformAgents(skills, DIST_DIR, patterns, prefixOptions);
   transformKiro(skills, DIST_DIR, patterns, prefixOptions);
   transformOpenCode(skills, DIST_DIR, patterns, prefixOptions);
@@ -378,7 +412,9 @@ async function build() {
     copyDirSync(skillsSrc, skillsDest);
   }
 
-  console.log(`📋 Synced skills to: ${providers.map(p => p.dir).join(', ')}`);
+  syncCopilotCliToRoot(DIST_DIR, ROOT_DIR);
+
+  console.log(`📋 Synced provider outputs to: ${providers.map(p => p.dir).join(', ')}, .github`);
 
   console.log('\n✨ Build complete!');
 }

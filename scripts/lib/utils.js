@@ -366,6 +366,11 @@ export const PROVIDER_PLACEHOLDERS = {
     config_file: 'AGENTS.md',
     ask_instruction: 'ask the user directly to clarify what you cannot infer.'
   },
+  'copilot-cli': {
+    model: 'GitHub Copilot',
+    config_file: '.github/copilot-instructions.md',
+    ask_instruction: 'ask the user directly to clarify what you cannot infer.'
+  },
   'agents': {
     model: 'the model',
     config_file: '.github/copilot-instructions.md',
