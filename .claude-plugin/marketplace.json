@@ -11,15 +11,15 @@
   "plugins": [
     {
       "name": "impeccable",
-      "description": "Design vocabulary and skills for frontend development. Includes 20 commands (/polish, /distill, /audit, /typeset, /overdrive, etc.) and an enhanced frontend-design skill with curated anti-patterns.",
-      "version": "1.5.1-bgausden.1",
+      "description": "Design vocabulary and skills for frontend development. Fork of pbakaus/impeccable with 20 commands (/polish, /distill, /audit, /typeset, /overdrive, etc.) and an enhanced frontend-design skill with curated anti-patterns.",
+      "version": "1.5.1-bgausden.2",
       "author": {
         "name": "Paul Bakaus",
         "email": "paul@paulbakaus.com"
       },
       "source": "./",
       "category": "design",
-      "homepage": "https://impeccable.style",
+      "homepage": "https://github.com/bgausden/impeccable",
       "tags": ["design", "frontend", "ui", "ux", "skills", "commands"]
     }
   ]

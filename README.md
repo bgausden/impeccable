@@ -2,7 +2,9 @@
 
 The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable frontend design. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, and more.
 
-> **Quick start:** Run `npx skills add pbakaus/impeccable`, download a ZIP from [GitHub Releases](https://github.com/pbakaus/impeccable/releases), or build locally with `npm install && npm run build`.
+> **Fork note:** This repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. It keeps upstream's design vocabulary and adds fork-specific packaging and maintenance changes.
+
+> **Quick start:** Run `npx skills add bgausden/impeccable`, download a ZIP from [GitHub Releases](https://github.com/bgausden/impeccable/releases), or build locally with `npm install && npm run build`.
 
 ## Why Impeccable?
 
@@ -112,12 +114,12 @@ Run `npm run dev` to browse the local examples and command demos in this reposit
 ### Option 1: Install via `skills`
 
 ```bash
-npx skills add pbakaus/impeccable
+npx skills add bgausden/impeccable
 ```
 
 ### Option 2: Download from GitHub Releases
 
-Download the latest ZIP bundle from [GitHub Releases](https://github.com/pbakaus/impeccable/releases) and extract it into your project root.
+Download the latest ZIP bundle from [GitHub Releases](https://github.com/bgausden/impeccable/releases) and extract it into your project root.
 
 - `universal.zip` contains the standard command names
 - `universal-prefixed.zip` contains `/i-` prefixed command variants to avoid naming conflicts
@@ -234,4 +236,4 @@ The frontend-design skill builds on [Anthropic's original](https://github.com/an
 
 ---
 
-Created by [Paul Bakaus](https://www.paulbakaus.com)
+Created by [Paul Bakaus](https://www.paulbakaus.com). Fork maintained by [Barry Gausden](https://github.com/bgausden).

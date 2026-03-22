@@ -37,7 +37,7 @@
 
   <!-- 1. HERO - Combined with Problem Section -->
   <section id="hero" class="hero-combined">
-    <a href="https://github.com/pbakaus/impeccable" class="github-link" aria-label="View on GitHub">
+    <a href="https://github.com/bgausden/impeccable" class="github-link" aria-label="View this fork on GitHub">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
     </a>
     <div class="hero-combined-container">
@@ -46,7 +46,7 @@
         <h1 class="hero-title-combined">Impeccable</h1>
         <p class="hero-tagline-combined">Design fluency for AI harnesses</p>
 
-        <p class="hero-hook-text">Great design prompts require design vocabulary. Most people don't have it. You can't ask for "more vertical rhythm" if you've never used those words. Impeccable gives you commands that put designer language in your hands.</p>
+        <p class="hero-hook-text">Great design prompts require design vocabulary. Most people don't have it. You can't ask for "more vertical rhythm" if you've never used those words. This fork keeps Paul Bakaus's original Impeccable vocabulary intact while packaging it for GitHub-native distribution.</p>
 
         <div class="hero-included-box">
           <span class="hero-included-title">What's included</span>
@@ -75,7 +75,7 @@
             </div>
           </div>
         </div>
-        <p class="hero-version-link"><a href="#changelog">v1.5.1-bgausden.1 — fork release with GitHub packages</a></p>
+        <p class="hero-version-link"><a href="#changelog">v1.5.1-bgausden.2 — attribution update for fork release</a></p>
       </div>
 
       <!-- Right: Before/After Demo -->
@@ -148,7 +148,7 @@
           <!-- Rendered by JS -->
         </div>
 
-        <p class="contribute-inline">Missing something? <a href="https://github.com/pbakaus/impeccable/issues/new?labels=pattern&title=Pattern%20suggestion%3A%20">Suggest a pattern &rarr;</a></p>
+        <p class="contribute-inline">Missing something? <a href="https://github.com/bgausden/impeccable/issues/new?labels=pattern&title=Pattern%20suggestion%3A%20">Suggest a pattern in this fork &rarr;</a></p>
       </div>
     </section>
 
@@ -204,8 +204,8 @@
               <span class="install-terminal-label">All tools</span>
               <div class="install-terminal-cmd">
                 <span class="terminal-prompt">$</span>
-                <code>npx skills add pbakaus/impeccable</code>
-                <button class="copy-btn" aria-label="Copy command" data-copy="npx skills add pbakaus/impeccable">
+                <code>npx skills add bgausden/impeccable</code>
+                <button class="copy-btn" aria-label="Copy command" data-copy="npx skills add bgausden/impeccable">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
@@ -219,8 +219,8 @@
               <span class="install-terminal-label">Claude Code</span>
               <div class="install-terminal-cmd">
                 <span class="terminal-prompt">$</span>
-                <code>/plugin marketplace add pbakaus/impeccable</code>
-                <button class="copy-btn" aria-label="Copy command" data-copy="/plugin marketplace add pbakaus/impeccable">
+                <code>/plugin marketplace add bgausden/impeccable</code>
+                <button class="copy-btn" aria-label="Copy command" data-copy="/plugin marketplace add bgausden/impeccable">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
@@ -323,11 +323,21 @@
       <div class="changelog-list" data-reveal>
         <div class="changelog-entry">
           <div class="changelog-version-header">
+            <span class="changelog-version">v1.5.1-bgausden.2</span>
+            <span class="changelog-date">March 22, 2026</span>
+          </div>
+          <ul class="changelog-items">
+            <li>Clarified that this repository is a fork of <code>pbakaus/impeccable</code> and updated docs, metadata, and plugin surfaces to credit upstream correctly</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-header">
             <span class="changelog-version">v1.5.1-bgausden.1</span>
             <span class="changelog-date">March 22, 2026</span>
           </div>
           <ul class="changelog-items">
-            <li>Fork release aligned to upstream <code>v1.5.1</code> with GitHub Release ZIP packaging and fork-specific maintenance changes</li>
+            <li>Fork release aligned to upstream <code>v1.5.1</code> with GitHub Release ZIP packaging and maintenance by Barry Gausden</li>
           </ul>
         </div>
 
@@ -417,7 +427,7 @@
         <details class="faq-item">
           <summary class="faq-question">Where do I put the installed or built files?</summary>
           <div class="faq-answer">
-            <p>The easiest way is <code>npx skills add pbakaus/impeccable</code> — it auto-detects your AI harness and places files correctly.</p>
+            <p>The easiest way is <code>npx skills add bgausden/impeccable</code> — it auto-detects your AI harness and places files correctly.</p>
             <p>If you built locally, copy the contents of <code>dist/universal/</code> into your <strong>project root</strong> (same level as your <code>package.json</code> or <code>src/</code> folder). It contains the provider directories needed by each supported tool, including <code>.cursor/</code>, <code>.claude/</code>, <code>.gemini/</code>, <code>.codex/</code>, <code>.agents/</code>, and Copilot CLI files under <code>.github/</code>.</p>
             <p>Project-level installation takes precedence and lets you version control your skills.</p>
           </div>
@@ -503,11 +513,11 @@
         <a href="/cheatsheet">Cheatsheet</a>
         <a href="#downloads">Install</a>
         <a href="#changelog">Changelog</a>
-        <a href="https://github.com/pbakaus/impeccable">GitHub</a>
+        <a href="https://github.com/bgausden/impeccable">GitHub</a>
       </div>
     </div>
     <div class="footer-author">
-      <span class="footer-author-label">Created by <a href="https://x.com/pbakaus" target="_blank" rel="noopener">Paul Bakaus</a></span>
+      <span class="footer-author-label">Created by <a href="https://x.com/pbakaus" target="_blank" rel="noopener">Paul Bakaus</a> · Fork maintained by <a href="https://github.com/bgausden" target="_blank" rel="noopener">Barry Gausden</a></span>
       <div class="footer-author-links">
         <a href="https://x.com/pbakaus" class="footer-social-link" aria-label="Follow on X" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

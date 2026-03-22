@@ -2,6 +2,8 @@
 
 Documentation for contributors to Impeccable.
 
+> **Fork note:** This repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. Keep upstream attribution intact when editing user-facing documentation and release metadata.
+
 ## Architecture
 
 This repository uses a **feature-rich source format** that transforms into provider-specific formats. We chose "Option A" architecture: maintain rich metadata in source files and downgrade for providers with limited support (like Cursor), rather than limiting everyone to the lowest common denominator.
@@ -82,8 +84,8 @@ npm run rebuild
 Tagged releases automatically publish the generated ZIP bundles to GitHub Releases.
 
 ```bash
-git tag v1.5.1-bgausden.1
-git push origin v1.5.1-bgausden.1
+ git tag v1.5.1-bgausden.2
+ git push origin v1.5.1-bgausden.2
 ```
 
 The release workflow runs `npm ci`, `npm test`, and `npm run build`, then uploads `dist/*.zip` to the matching GitHub Release. You can also run the workflow manually for an existing tag from the Actions tab.

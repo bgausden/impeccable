@@ -2,6 +2,8 @@
 
 The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable style. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, VS Code Copilot, and more.
 
+> Fork note: this repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. Preserve upstream attribution when editing docs, metadata, and releases.
+
 ## Repository Purpose
 
 Maintain a **single source of truth** for design-focused skills and commands, then automatically transform them into provider-specific formats. Each provider has different capabilities (frontmatter, arguments, modular files), so we use a build system to generate appropriate outputs.
