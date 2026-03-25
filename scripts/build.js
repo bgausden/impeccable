@@ -18,18 +18,8 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { cleanDir, readSourceFiles, readPatterns } from './lib/utils.js';
-import {
-  transformCursor,
-  transformClaudeCode,
-  transformGemini,
-  transformCodex,
-  transformCopilotCli,
-  transformAgents,
-  transformKiro,
-  transformOpenCode,
-  transformPi
-} from './lib/transformers/index.js';
+import { readSourceFiles, readPatterns } from './lib/utils.js';
+import { createTransformer, PROVIDERS, transformCopilotCli } from './lib/transformers/index.js';
 import { createAllZips } from './lib/zip.js';
 import { execSync } from 'child_process';
 
@@ -116,7 +106,8 @@ async function buildStaticSite() {
   console.log('📦 Copying static site assets...');
 
   try {
-    cleanDir(outdir);
+    if (fs.existsSync(outdir)) fs.rmSync(outdir, { recursive: true, force: true });
+    fs.mkdirSync(outdir, { recursive: true });
     copyDirSync(publicDir, outdir);
 
     const fileCounts = { html: 0, js: 0, css: 0, total: 0, bytes: 0 };
@@ -165,19 +156,12 @@ function assembleUniversal(distDir, suffix = '') {
     fs.rmSync(universalDir, { recursive: true, force: true });
   }
 
-  const providerMappings = [
-    { provider: 'cursor', configDir: '.cursor' },
-    { provider: 'claude-code', configDir: '.claude' },
-    { provider: 'gemini', configDir: '.gemini' },
-    { provider: 'codex', configDir: '.codex' },
+  const providerConfigs = [
+    ...Object.values(PROVIDERS),
     { provider: 'copilot-cli', configDir: '.github' },
-    { provider: 'agents', configDir: '.agents' },
-    { provider: 'kiro', configDir: '.kiro' },
-    { provider: 'opencode', configDir: '.opencode' },
-    { provider: 'pi', configDir: '.pi' }
   ];
 
-  for (const { provider, configDir } of providerMappings) {
+  for (const { provider, configDir } of providerConfigs) {
     const src = path.join(distDir, `${provider}${suffix}`, configDir);
     const dest = path.join(universalDir, configDir);
     if (fs.existsSync(src)) {
@@ -203,13 +187,15 @@ This folder contains skills for all supported tools:
   .kiro/      → Kiro
   .opencode/  → OpenCode
   .pi/        → Pi
+  .trae-cn/   → Trae China
+  .trae/      → Trae International
 
 To install, copy the relevant folder(s) into your project root.
 These are hidden folders (dotfiles) — press Cmd+Shift+. in Finder to see them.
 `);
 
   const label = suffix ? ' (prefixed)' : '';
-  console.log(`✓ Assembled universal${label} directory (${providerMappings.length} providers)`);
+  console.log(`✓ Assembled universal${label} directory (${providerConfigs.length} providers)`);
 }
 
 /**
@@ -230,28 +216,16 @@ async function build() {
   const userInvocableCount = skills.filter(s => s.userInvocable).length;
   console.log(`📖 Read ${skills.length} skills (${userInvocableCount} user-invocable) and ${patterns.patterns.length + patterns.antipatterns.length} pattern categories\n`);
 
-  // Transform for each provider
-  transformCursor(skills, DIST_DIR, patterns);
-  transformClaudeCode(skills, DIST_DIR, patterns);
-  transformGemini(skills, DIST_DIR, patterns);
-  transformCodex(skills, DIST_DIR, patterns);
-  transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
-  transformAgents(skills, DIST_DIR, patterns);
-  transformKiro(skills, DIST_DIR, patterns);
-  transformOpenCode(skills, DIST_DIR, patterns);
-  transformPi(skills, DIST_DIR, patterns);
+  // Transform for each provider (unprefixed + prefixed)
+  for (const config of Object.values(PROVIDERS)) {
+    const transform = createTransformer(config);
+    transform(skills, DIST_DIR);
+    transform(skills, DIST_DIR, { prefix: 'i-', outputSuffix: '-prefixed' });
+  }
 
-  // Transform for each provider (prefixed with i-)
-  const prefixOptions = { prefix: 'i-', outputSuffix: '-prefixed' };
-  transformCursor(skills, DIST_DIR, patterns, prefixOptions);
-  transformClaudeCode(skills, DIST_DIR, patterns, prefixOptions);
-  transformGemini(skills, DIST_DIR, patterns, prefixOptions);
-  transformCodex(skills, DIST_DIR, patterns, prefixOptions);
-  transformCopilotCli(skills, DIST_DIR, patterns, { ...prefixOptions, rootDir: ROOT_DIR });
-  transformAgents(skills, DIST_DIR, patterns, prefixOptions);
-  transformKiro(skills, DIST_DIR, patterns, prefixOptions);
-  transformOpenCode(skills, DIST_DIR, patterns, prefixOptions);
-  transformPi(skills, DIST_DIR, patterns, prefixOptions);
+  // Copilot CLI uses a custom transformer (outputs instruction files in addition to skills)
+  transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
+  transformCopilotCli(skills, DIST_DIR, patterns, { prefix: 'i-', outputSuffix: '-prefixed', rootDir: ROOT_DIR });
 
   // Assemble universal directory (unprefixed and prefixed)
   assembleUniversal(DIST_DIR);
@@ -261,28 +235,21 @@ async function build() {
   await createAllZips(DIST_DIR);
 
   // Copy all provider outputs to project root for local testing
-  const providers = [
-    { dist: 'claude-code', dir: '.claude' },
-    { dist: 'cursor', dir: '.cursor' },
-    { dist: 'gemini', dir: '.gemini' },
-    { dist: 'codex', dir: '.codex' },
-    { dist: 'agents', dir: '.agents' },
-    { dist: 'kiro', dir: '.kiro' },
-    { dist: 'opencode', dir: '.opencode' },
-    { dist: 'pi', dir: '.pi' },
-  ];
+  const syncConfigs = Object.values(PROVIDERS);
 
-  for (const { dist, dir } of providers) {
-    const skillsSrc = path.join(DIST_DIR, dist, dir, 'skills');
-    const skillsDest = path.join(ROOT_DIR, dir, 'skills');
+  for (const { provider, configDir } of syncConfigs) {
+    const skillsSrc = path.join(DIST_DIR, provider, configDir, 'skills');
+    const skillsDest = path.join(ROOT_DIR, configDir, 'skills');
 
-    if (fs.existsSync(skillsDest)) fs.rmSync(skillsDest, { recursive: true });
-    copyDirSync(skillsSrc, skillsDest);
+    if (fs.existsSync(skillsSrc)) {
+      if (fs.existsSync(skillsDest)) fs.rmSync(skillsDest, { recursive: true });
+      copyDirSync(skillsSrc, skillsDest);
+    }
   }
 
   syncCopilotCliToRoot(DIST_DIR, ROOT_DIR);
 
-  console.log(`📋 Synced provider outputs to: ${providers.map(p => p.dir).join(', ')}, .github`);
+  console.log(`📋 Synced skills to: ${syncConfigs.map(p => p.configDir).join(', ')}, .github`);
 
   console.log('\n✨ Build complete!');
 }

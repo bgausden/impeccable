@@ -2,21 +2,11 @@
 
 Documentation for contributors to Impeccable.
 
-> **Fork note:** This repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. Keep upstream attribution intact when editing user-facing documentation and release metadata.
-
 ## Architecture
 
-This repository uses a **feature-rich source format** that transforms into provider-specific formats. We chose "Option A" architecture: maintain rich metadata in source files and downgrade for providers with limited support (like Cursor), rather than limiting everyone to the lowest common denominator.
+Source skills in `source/skills/` are transformed into provider-specific formats by a config-driven factory. Each provider is defined as a config object in `scripts/lib/transformers/providers.js` -- adding a new provider requires only a new config entry.
 
-### Why This Approach?
-
-Different providers have different capabilities:
-- **Claude Code, OpenCode**: Full metadata — args, user-invocable, allowed-tools, license, compatibility
-- **Codex, Agents**: `argument-hint` frontmatter
-- **Gemini**: Minimal frontmatter, `{{arg}}` placeholders become `{{args}}`
-- **Cursor, Kiro, Pi**: Basic frontmatter (name, description, license/compatibility)
-
-Source skills now keep Copilot-safe frontmatter for user-invocable skills (`argument-hint`) and store richer arg metadata in a leading `<!-- impeccable-args -->` comment in the body. The build strips that comment from generated output and reconstructs structured args where supported.
+For detailed harness capabilities (which frontmatter fields each supports, placeholder systems, directory structures), see [HARNESSES.md](HARNESSES.md).
 
 ## Source Format
 
@@ -26,17 +16,11 @@ Source skills now keep Copilot-safe frontmatter for user-invocable skills (`argu
 ---
 name: skill-name
 description: What this skill provides
-argument-hint: [TARGET=<value>]
+argument-hint: "[target]"
 user-invocable: true
 license: License info (optional)
 compatibility: Environment requirements (optional)
 ---
-
-<!-- impeccable-args
-- name: target
-  description: What to operate on
-  required: false
--->
 
 Your skill instructions here...
 ```
@@ -44,163 +28,109 @@ Your skill instructions here...
 **Frontmatter fields** (based on [Agent Skills spec](https://agentskills.io/specification)):
 - `name` (required): Skill identifier (1-64 chars, lowercase/numbers/hyphens)
 - `description` (required): What the skill provides (1-1024 chars)
-- `user-invocable` (optional): Boolean — if `true`, the skill can be invoked as a slash command
-- `argument-hint` (optional): Flat hint string for user-invocable skills, compatible with Copilot/Agents parsers
+- `user-invocable` (optional): Boolean -- if `true`, the skill can be invoked as a slash command
+- `argument-hint` (optional): Hint shown during autocomplete (e.g., `[target]`, `[area (feature, page...)]`)
 - `license` (optional): License/attribution info
 - `compatibility` (optional): Environment requirements (1-500 chars)
 - `metadata` (optional): Arbitrary key-value pairs
 - `allowed-tools` (optional, experimental): Pre-approved tools list
 
-**Body**: The skill instructions for the LLM.
-
-**Optional body metadata for user-invocable skills**:
-- Leading `<!-- impeccable-args ... -->` comment: Rich arg metadata used by the build to recreate structured `args` arrays for providers that support them
-- Inside the comment:
-  - `name`: Argument identifier
-  - `description`: What it's for
-  - `required`: Boolean (defaults to false)
+**Body placeholders** (replaced per-provider during build):
+- `{{model}}` -- Provider-specific model name (e.g., "Claude", "Gemini", "GPT")
+- `{{config_file}}` -- Provider-specific config file (e.g., "CLAUDE.md", ".cursorrules")
+- `{{ask_instruction}}` -- How to ask the user for clarification
+- `{{command_prefix}}` -- Slash command prefix (`/` for most, `$` for Codex)
+- `{{available_commands}}` -- Comma-separated list of user-invocable commands
 
 ## Building
 
 ### Prerequisites
-- Node.js
-- `npm install`
+- Bun (fast JavaScript runtime and package manager)
+- No external dependencies required
 
 ### Commands
 
 ```bash
 # Build all provider formats
-npm run build
+bun run build
 
 # Clean dist folder
-npm run clean
+bun run clean
 
 # Rebuild from scratch
-npm run rebuild
+bun run rebuild
 ```
-
-### GitHub Releases
-
-Tagged releases automatically publish the generated ZIP bundles to GitHub Releases.
-
-```bash
- git tag v1.5.1-bgausden.2
- git push origin v1.5.1-bgausden.2
-```
-
-The release workflow runs `npm ci`, `npm test`, and `npm run build`, then uploads `dist/*.zip` to the matching GitHub Release. You can also run the workflow manually for an existing tag from the Actions tab.
 
 ### What Gets Generated
 
 ```
-source/                          → dist/
-  skills/{name}/SKILL.md           cursor/.cursor/skills/{name}/SKILL.md
-                                   claude-code/.claude/skills/{name}/SKILL.md
-                                   gemini/.gemini/skills/{name}/SKILL.md
-                                   codex/.codex/skills/{name}/SKILL.md
-                                   agents/.agents/skills/{name}/SKILL.md
-                                   kiro/.kiro/skills/{name}/SKILL.md
-                                   opencode/.opencode/skills/{name}/SKILL.md
-                                   pi/.pi/skills/{name}/SKILL.md
+source/                          -> dist/
+  skills/{name}/SKILL.md           {provider}/{configDir}/skills/{name}/SKILL.md
 ```
 
-## Provider Transformations
-
-All providers output skills to `dist/{provider}/.{config}/skills/{name}/SKILL.md` with reference files in subdirectories. They differ in frontmatter fields and argument handling.
-
-### Cursor
-- Output: `dist/cursor/.cursor/skills/{name}/SKILL.md`
-- Frontmatter: name, description, license
-- **Note**: Agent Skills require Cursor nightly channel
-
-### Claude Code (Full Featured)
-- Output: `dist/claude-code/.claude/skills/{name}/SKILL.md`
-- Frontmatter: name, description, user-invocable, args, license, compatibility, metadata, allowed-tools
-- Reconstructs structured `args` from `<!-- impeccable-args -->`
-- Preserves `{{arg}}` placeholders in body
-
-### OpenCode (Full Featured)
-- Output: `dist/opencode/.opencode/skills/{name}/SKILL.md`
-- Frontmatter: name, description, user-invocable, args, license, compatibility, metadata, allowed-tools
-- Reconstructs structured `args` from `<!-- impeccable-args -->`
-- Same format as Claude Code
-
-### Gemini CLI
-- Output: `dist/gemini/.gemini/skills/{name}/SKILL.md`
-- Frontmatter: name, description
-- For user-invocable skills: remaining `{{arg}}` placeholders become `{{args}}`
-
-### Codex CLI
-- Output: `dist/codex/.codex/skills/{name}/SKILL.md`
-- Frontmatter: name, description, argument-hint, license
-- For user-invocable skills: `{{argname}}` → `$ARGNAME` (uppercase)
-
-### Agents (VS Code Copilot, Antigravity)
-- Output: `dist/agents/.agents/skills/{name}/SKILL.md`
-- Frontmatter: name, description, user-invocable, argument-hint
-- Uses source `argument-hint` directly (e.g., `<target> [FORMAT=<value>]`)
-
-### Kiro
-- Output: `dist/kiro/.kiro/skills/{name}/SKILL.md`
-- Frontmatter: name, description, license, compatibility, metadata
-
-### Pi
-- Output: `dist/pi/.pi/skills/{name}/SKILL.md`
-- Frontmatter: name, description, license, compatibility, metadata
-
-## Adding New Content
-
-### 1. Create Source File
-
-```bash
-mkdir source/skills/myskill
-touch source/skills/myskill/SKILL.md
-```
-
-Add frontmatter and content following the format above.
-
-### 2. Build
-
-```bash
-npm run build
-```
-
-This generates all 8 provider formats automatically.
-
-### 3. Test
-
-Test with your provider of choice to ensure it works correctly. Remember that Cursor will have limited functionality.
-
-### 4. Commit
-
-Commit source files:
-```bash
-git add source/
-git commit -m "Add [skill name]"
-```
+Each provider gets its own output directory. Two variants are generated per provider: unprefixed and prefixed (with `i-` prefix for skill names).
 
 ## Build System Details
 
-The build system uses a modular architecture under `scripts/`:
+The build system uses a factory pattern under `scripts/`:
 
-- `build.js` — Main orchestrator
-- `lib/utils.js` — Shared utilities (frontmatter parsing, file I/O, placeholder replacement)
-- `lib/zip.js` — ZIP bundle generation
-- `lib/transformers/*.js` — One file per provider (cursor, claude-code, gemini, codex, agents, kiro, opencode, pi)
+```
+scripts/
+  build.js                        # Main orchestrator
+  lib/
+    utils.js                      # Frontmatter parsing, placeholder replacement, YAML generation
+    zip.js                        # ZIP bundle generation
+    transformers/
+      factory.js                  # createTransformer() -- generates transformer functions from config
+      providers.js                # PROVIDERS config map -- one entry per provider
+      index.js                    # Re-exports factory-generated transformer functions
+```
+
+### Adding a New Provider
+
+1. Add a placeholder config to `PROVIDER_PLACEHOLDERS` in `scripts/lib/utils.js`:
+   ```javascript
+   'my-provider': {
+     model: 'MyModel',
+     config_file: 'CONFIG.md',
+     ask_instruction: 'ask the user directly to clarify.',
+     command_prefix: '/'
+   }
+   ```
+
+2. Add a provider config to `PROVIDERS` in `scripts/lib/transformers/providers.js`:
+   ```javascript
+   'my-provider': {
+     provider: 'my-provider',
+     configDir: '.my-provider',
+     displayName: 'My Provider',
+     frontmatterFields: ['user-invocable', 'argument-hint', 'license'],
+   }
+   ```
+
+3. Run `bun run build` -- the provider is automatically picked up by the build loop.
+
+4. Update `HARNESSES.md` with the provider's capabilities.
+
+### Provider Config Options
+
+| Field | Description |
+|-------|-------------|
+| `provider` | Key for output directory and placeholder lookup |
+| `configDir` | Dot-directory name (e.g., `.claude`) |
+| `displayName` | Human-readable name for build logs |
+| `frontmatterFields` | Which optional fields to emit (see `factory.js` FIELD_SPECS) |
+| `bodyTransform` | Optional `(body, skill) => body` function for post-processing |
+| `placeholderProvider` | Override which PROVIDER_PLACEHOLDERS key to use (for variants sharing config) |
 
 ### Key Functions
 
-- `parseFrontmatter()`: Extracts YAML frontmatter and body
+- `createTransformer(config)`: Factory that returns a transformer function from a provider config
+- `parseFrontmatter()`: Extracts YAML frontmatter and body from SKILL.md files
 - `readSourceFiles()`: Reads all skill directories from `source/skills/`
 - `replacePlaceholders()`: Substitutes `{{model}}`, `{{config_file}}`, etc. per provider
-- `transformCursor()`: Basic frontmatter (name, description, license)
-- `transformClaudeCode()`: Full metadata with reconstructed args and allowed-tools
-- `transformGemini()`: Minimal frontmatter, `{{arg}}` → `{{args}}`
-- `transformCodex()`: Emits argument-hint, `{{arg}}` → `$ARGNAME`
-- `transformAgents()`: Emits argument-hint and user-invocable flag
-- `transformKiro()`: Basic frontmatter with license/compatibility/metadata
-- `transformOpenCode()`: Full metadata (same as Claude Code)
-- `transformPi()`: Basic frontmatter with license/compatibility/metadata
+- `generateYamlFrontmatter()`: Serializes objects to YAML frontmatter (auto-quotes values starting with `[` or `{`)
+- `prefixSkillReferences()`: Replaces `/skillname` with `/i-skillname` for prefixed variants
 
 ## Best Practices
 
@@ -216,57 +146,42 @@ The build system uses a modular architecture under `scripts/`:
 ## Reference Documentation
 
 - [Agent Skills Specification](https://agentskills.io/specification) - Open standard
-- [Cursor Commands](https://cursor.com/docs/agent/chat/commands)
-- [Cursor Rules](https://cursor.com/docs/context/rules)
+- [HARNESSES.md](HARNESSES.md) - Provider capabilities matrix
 - [Cursor Skills](https://cursor.com/docs/context/skills)
-- [Claude Code Slash Commands](https://code.claude.com/docs/en/slash-commands)
-- [Anthropic Skills (Claude Code)](https://github.com/anthropics/skills)
-- [Gemini CLI Custom Commands](https://cloud.google.com/blog/topics/developers-practitioners/gemini-cli-custom-slash-commands)
-- [Gemini CLI Skills](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md)
-- [Codex CLI Slash Commands](https://developers.openai.com/codex/guides/slash-commands#create-your-own-slash-commands-with-custom-prompts)
+- [Claude Code Skills](https://code.claude.com/docs/en/skills)
+- [Gemini CLI Skills](https://geminicli.com/docs/cli/skills/)
 - [Codex CLI Skills](https://developers.openai.com/codex/skills/)
+- [VS Code Copilot Skills](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
+- [Kiro Skills](https://kiro.dev/docs/skills/)
+- [OpenCode Skills](https://opencode.ai/docs/skills/)
 - [Pi Skills](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md)
 
 ## Repository Structure
 
 ```
 impeccable/
-├── source/                          # Edit these! Source of truth
-│   └── skills/                      # Skill definitions
-│       ├── frontend-design/
-│       │   ├── SKILL.md
-│       │   └── reference/*.md       # Domain-specific references
-│       ├── audit/SKILL.md
-│       ├── polish/SKILL.md
-│       └── ...
-├── dist/                            # Generated output (gitignored)
-│   ├── cursor/
-│   ├── claude-code/
-│   ├── gemini/
-│   ├── codex/
-│   ├── agents/
-│   ├── kiro/
-│   ├── opencode/
-│   └── pi/
-├── scripts/
-│   ├── build.js                     # Main orchestrator
-│   └── lib/
-│       ├── utils.js                 # Shared utilities
-│       ├── zip.js                   # ZIP generation
-│       └── transformers/            # One file per provider
-│           ├── cursor.js
-│           ├── claude-code.js
-│           ├── gemini.js
-│           ├── codex.js
-│           ├── agents.js
-│           ├── kiro.js
-│           ├── opencode.js
-│           └── pi.js
-├── tests/                           # Node test suite
-├── package.json                     # ESM project config
-├── README.md                        # User documentation
-├── DEVELOP.md                       # This file
-└── .gitignore
+  source/                          # Edit these! Source of truth
+    skills/                        # Skill definitions
+      frontend-design/
+        SKILL.md
+        reference/*.md             # Domain-specific references
+      audit/SKILL.md
+      polish/SKILL.md
+      ...
+  dist/                            # Generated output (gitignored)
+  scripts/
+    build.js                       # Main orchestrator
+    lib/
+      utils.js                     # Shared utilities
+      zip.js                       # ZIP generation
+      transformers/
+        factory.js                 # Config-driven transformer factory
+        providers.js               # Provider config map
+        index.js                   # Re-exports
+  tests/                           # Bun test suite
+  HARNESSES.md                     # Provider capabilities reference
+  DEVELOP.md                       # This file
+  README.md                        # User documentation
 ```
 
 ## Troubleshooting
@@ -274,17 +189,17 @@ impeccable/
 ### Build fails with YAML parsing errors
 - Check frontmatter indentation (YAML is indent-sensitive)
 - Ensure `---` delimiters are on their own lines
-- Verify colons have spaces after them (`key: value`)
+- Values starting with `[` or `{` are auto-quoted; other special YAML chars may need manual quoting
 
 ### Output doesn't match expectations
-- Check the transformer function for your provider in `scripts/lib/transformers/`
+- Check the provider config in `scripts/lib/transformers/providers.js`
 - Verify source file has correct frontmatter structure
-- Run `npm run rebuild` to ensure clean build
+- Run `bun run rebuild` to ensure clean build
 
 ### Provider doesn't recognize the files
 - Check installation path for your provider
 - Verify file naming matches provider requirements
-- Consult provider's documentation (links above)
+- Consult [HARNESSES.md](HARNESSES.md) for provider-specific details
 
 ## Questions?
 
