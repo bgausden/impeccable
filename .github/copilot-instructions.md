@@ -1,18 +1,9 @@
-Impeccable is a source-driven build system for cross-provider AI skills and commands.
+This project uses the Impeccable design skill pack for GitHub Copilot.
 
-Always edit the source files in `source/` and the build logic in `scripts/`. Do not hand-edit generated provider outputs in `dist/` or the generated provider directories in the repository root such as `.cursor/`, `.claude/`, `.codex/`, `.agents/`, `.github/skills/`, `.kiro/`, `.opencode/`, or `.pi/`.
+Impeccable provides a curated set of design-focused skills that help produce high-quality frontend UI. The following user-invocable skills are available: /adapt, /animate, /arrange, /audit, /bolder, /clarify, /colorize, /critique, /delight, /distill, /extract, /harden, /normalize, /onboard, /optimize, /overdrive, /polish, /quieter, /typeset.
 
-Key paths:
-- `source/skills/**/SKILL.md` plus optional `reference/*.md` files are the single source of truth for skills.
-- `source/copilot-cli/` is the single source of truth for Copilot CLI instruction files.
-- `scripts/lib/transformers/*.js` contains provider-specific transforms.
-- `scripts/build.js` orchestrates provider generation, universal bundles, and local sync back into the repository root.
-- `lib/download-providers.js`, `server/lib/api-handlers.js`, and `functions/api/download/**` must stay in sync for downloadable provider artifacts.
-- `public/` contains the static website, `server/` contains the local dev server, and `functions/` contains production download handlers.
+When the user invokes one of these skills, load and apply its instructions from `.github/skills/`. When working on frontend UI without an explicit skill invocation, proactively suggest relevant skills if quality improvements are possible.
 
-Validation workflow:
-- Run `npm run build` after changing source skills, Copilot instruction sources, transformers, or provider wiring.
-- Run `npm test` after changing code.
-- If you modify CSS in `public/css/`, also run `npm run css:build`.
+The `frontend-design` skill is loaded automatically when working on UI code. It provides anti-pattern guidance and design vocabulary — prefer its language and principles when proposing UI changes.
 
-When adding or changing a provider, update the transformer registry, build orchestration, universal bundle assembly, download provider registry, and user-facing installation docs together. If the provider writes to `.github`, never delete or overwrite unrelated repository files such as workflows, templates, or CODEOWNERS.
+If something is unclear about the user's design intent, ask the user directly to clarify what you cannot infer.
