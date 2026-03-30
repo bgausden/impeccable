@@ -6,6 +6,7 @@ import { initLensEffect } from "./js/components/lens.js";
 import { initFrameworkViz } from "./js/components/framework-viz.js";
 import { initScrollReveal } from "./js/utils/reveal.js";
 import { initAnchorScroll, initHashTracking } from "./js/utils/scroll.js";
+import { initSectionNav } from "./js/components/section-nav.js";
 
 // ============================================
 // STATE
@@ -226,7 +227,21 @@ function renderPatternsWithTabs(patterns, antipatterns) {
 // EVENT HANDLERS
 // ============================================
 
-// Handle copy button clicks via event delegation
+// Sync prefix radio buttons to hidden checkbox + update download button label
+document.querySelectorAll('input[name="prefix-choice"]').forEach((radio) => {
+	radio.addEventListener('change', () => {
+		const prefixToggle = document.getElementById('prefix-toggle');
+		if (prefixToggle) prefixToggle.checked = radio.value === 'prefixed';
+		const btnLabel = document.querySelector('#download-zip-btn span');
+		if (btnLabel) {
+			btnLabel.textContent = radio.value === 'prefixed'
+				? 'Download prefixed zip'
+				: 'Download universal zip';
+		}
+	});
+});
+
+// Handle bundle download clicks via event delegation
 document.addEventListener("click", (e) => {
 	const copyBtn = e.target.closest("[data-copy]");
 	if (copyBtn) {
@@ -260,6 +275,7 @@ function init() {
 	initScrollReveal();
 	initGlassTerminal();
 	initFrameworkViz();
+	initSectionNav();
 	loadContent();
 
 	document.body.classList.add("loaded");
