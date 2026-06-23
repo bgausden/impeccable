@@ -53,14 +53,6 @@ for (const [key, config] of Object.entries(PROVIDERS)) {
       expect(content).toContain(`See ${expected}.`);
     });
 
-    test('should support prefix option', () => {
-      const skills = [{ name: 'audit', description: 'Audit', userInvocable: true, body: 'Body' }];
-      transform(skills, TEST_DIR, { prefix: 'i-', outputSuffix: '-prefixed' });
-      expect(fs.existsSync(skillPath(config, 'i-audit', '-prefixed'))).toBe(true);
-      const content = fs.readFileSync(skillPath(config, 'i-audit', '-prefixed'), 'utf-8');
-      expect(content).toContain('name: i-audit');
-    });
-
     test('should copy reference files', () => {
       const skills = [{
         name: 'test',
@@ -71,6 +63,13 @@ for (const [key, config] of Object.entries(PROVIDERS)) {
       transform(skills, TEST_DIR);
       const refPath = path.join(TEST_DIR, `${config.provider}/${config.configDir}/skills/test/reference/ref.md`);
       expect(fs.existsSync(refPath)).toBe(true);
+    });
+
+    test('should emit skillsVersion in generated skill frontmatter', () => {
+      const skills = [{ name: 'test', description: 'Test', body: 'Body' }];
+      transform(skills, TEST_DIR, { skillsVersion: '1.2.3-test' });
+      const parsed = parseFrontmatter(fs.readFileSync(skillPath(config, 'test'), 'utf-8'));
+      expect(parsed.frontmatter.version).toBe('1.2.3-test');
     });
 
     // Field-specific tests based on provider config

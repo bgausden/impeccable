@@ -1,12 +1,132 @@
 import fs from 'fs';
 import path from 'path';
 
+// Per-project artifacts live inside `scripts/` of an installed skill but
+// belong to the consuming project, not the distributable skill. The build
+// excludes them from dist, and the harness-sync step preserves them across
+// the rm+recopy so local state isn't destroyed on every rebuild.
+// - config.json: legacy live-mode inject target list for existing projects.
+//   New installs write project config at .impeccable/live/config.json instead.
+export const PER_PROJECT_SCRIPT_ARTIFACTS = new Set(['config.json']);
+
+const DETECTOR_BUNDLE_DIR = 'cli/engine';
+
+// Detector source files that live OUTSIDE `cli/engine` but are imported by the
+// bundled engine. `cli/engine/cli/main.mjs` imports `../../lib/impeccable-config.mjs`,
+// which in the source CLI resolves to `cli/lib/impeccable-config.mjs`. The detector
+// bundle copies `cli/engine/**` to `scripts/detector/**`, so from the bundled
+// `scripts/detector/cli/main.mjs` that same `../../lib/...` import resolves to
+// `scripts/lib/impeccable-config.mjs`. Copy the dependency there or the bundled
+// detector fails at import time with "Cannot find module .../lib/impeccable-config.mjs".
+const DETECTOR_EXTERNAL_DEPS = [
+  { src: 'cli/lib/impeccable-config.mjs', dest: 'lib/impeccable-config.mjs' },
+];
+
+// Walk the harness-dir skill tree and return any per-project script
+// artifacts found, ready for restoration after a full sync rm+recopy.
+// Returns [{ relPath, content: Buffer }], where relPath is relative to
+// the passed-in rootDir (typically `<configDir>/skills`).
+export function stashPerProjectArtifacts(rootDir) {
+  if (!fs.existsSync(rootDir)) return [];
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(p); continue; }
+      // Only preserve files inside a skill's scripts/ directory.
+      if (path.basename(path.dirname(p)) !== 'scripts') continue;
+      if (PER_PROJECT_SCRIPT_ARTIFACTS.has(entry.name)) {
+        out.push({ relPath: path.relative(rootDir, p), content: fs.readFileSync(p) });
+      }
+    }
+  };
+  walk(rootDir);
+  return out;
+}
+
+export function restorePerProjectArtifacts(rootDir, stashed) {
+  for (const { relPath, content } of stashed) {
+    const target = path.join(rootDir, relPath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  }
+}
+
+function readDetectorBundleScripts(rootDir) {
+  const detectorDir = path.join(rootDir, DETECTOR_BUNDLE_DIR);
+  if (!fs.existsSync(detectorDir)) return [];
+
+  const scripts = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const relPath = path.relative(detectorDir, entryPath).split(path.sep).join('/');
+      scripts.push({
+        name: `detector/${relPath}`,
+        content: fs.readFileSync(entryPath, 'utf-8'),
+        filePath: entryPath,
+        generated: true,
+      });
+    }
+  };
+  walk(detectorDir);
+
+  // Pull in engine dependencies that live outside the bundle dir so the
+  // generated detector is self-contained (see DETECTOR_EXTERNAL_DEPS).
+  for (const { src, dest } of DETECTOR_EXTERNAL_DEPS) {
+    const srcPath = path.join(rootDir, src);
+    if (!fs.existsSync(srcPath)) continue;
+    scripts.push({
+      name: dest,
+      content: fs.readFileSync(srcPath, 'utf-8'),
+      filePath: srcPath,
+      generated: true,
+    });
+  }
+
+  return scripts;
+}
+
+function readSkillScripts(scriptsDir) {
+  const scripts = [];
+
+  const walk = (dir) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      if (PER_PROJECT_SCRIPT_ARTIFACTS.has(entry.name)) continue;
+
+      const relPath = path.relative(scriptsDir, entryPath).split(path.sep).join('/');
+      scripts.push({
+        name: relPath,
+        content: fs.readFileSync(entryPath, 'utf-8'),
+        filePath: entryPath,
+      });
+    }
+  };
+
+  walk(scriptsDir);
+  return scripts;
+}
+
 /**
  * Parse frontmatter from markdown content
  * Returns { frontmatter: object, body: string }
  */
 export function parseFrontmatter(content) {
-  const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
+  const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
   const match = content.match(frontmatterRegex);
 
   if (!match) {
@@ -16,17 +136,8 @@ export function parseFrontmatter(content) {
   const [, frontmatterText, body] = match;
   const frontmatter = {};
 
-  const parseScalar = (value) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (value.startsWith('"') && value.endsWith('"')) {
-      return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    }
-    return value;
-  };
-
   // Simple YAML parser (handles basic key-value and arrays)
-  const lines = frontmatterText.split('\n');
+  const lines = frontmatterText.split(/\r?\n/);
   let currentKey = null;
   let currentArray = null;
 
@@ -45,6 +156,9 @@ export function parseFrontmatter(content) {
           const obj = {};
           obj.name = trimmed.slice(7).trim();
           currentArray.push(obj);
+        } else {
+          // Simple string item in array
+          currentArray.push(trimmed.slice(2));
         }
       }
       continue;
@@ -57,7 +171,7 @@ export function parseFrontmatter(content) {
         const key = trimmed.slice(0, colonIndex).trim();
         const value = trimmed.slice(colonIndex + 1).trim();
         const lastObj = currentArray[currentArray.length - 1];
-        lastObj[key] = parseScalar(value);
+        lastObj[key] = value === 'true' ? true : value === 'false' ? false : value;
       }
       continue;
     }
@@ -68,13 +182,19 @@ export function parseFrontmatter(content) {
       if (colonIndex > 0) {
         const key = trimmed.slice(0, colonIndex).trim();
         const value = trimmed.slice(colonIndex + 1).trim();
+        const isQuoted = /^(".*"|'.*')$/.test(value);
+        const unquotedValue = isQuoted ? value.slice(1, -1) : value;
+        const shouldCoerceBoolean =
+          key === 'user-invocable' || key === 'user-invokable' || !isQuoted;
 
         if (value) {
-          // Strip YAML quotes
-          const unquoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
-            ? value.slice(1, -1)
-            : value;
-          frontmatter[key] = unquoted === 'true' ? true : unquoted === 'false' ? false : unquoted;
+          frontmatter[key] = shouldCoerceBoolean
+            ? unquotedValue === 'true'
+              ? true
+              : unquotedValue === 'false'
+                ? false
+                : unquotedValue
+            : unquotedValue;
           currentKey = key;
           currentArray = null;
         } else {
@@ -88,72 +208,6 @@ export function parseFrontmatter(content) {
   }
 
   return { frontmatter, body: body.trim() };
-}
-
-/**
- * Extract rich argument metadata from a leading HTML comment in the body.
- * This keeps source frontmatter simple for Copilot-compatible parsers while
- * preserving descriptions for providers that support structured args.
- */
-export function extractSkillArgsMetadata(body) {
-  const argsCommentRegex = /^<!-- impeccable-args\n([\s\S]*?)\n-->\s*/;
-  const match = body.match(argsCommentRegex);
-
-  if (!match) {
-    return { args: [], body };
-  }
-
-  const [, argsText] = match;
-  const args = [];
-  let currentArg = null;
-
-  for (const line of argsText.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    if (trimmed.startsWith('- name:')) {
-      currentArg = { name: trimmed.slice(7).trim() };
-      args.push(currentArg);
-      continue;
-    }
-
-    if (!currentArg) continue;
-
-    const colonIndex = trimmed.indexOf(':');
-    if (colonIndex <= 0) continue;
-
-    const key = trimmed.slice(0, colonIndex).trim();
-    const value = trimmed.slice(colonIndex + 1).trim();
-    currentArg[key] = value === 'true' ? true : value === 'false' ? false : value;
-  }
-
-  return {
-    args,
-    body: body.replace(argsCommentRegex, '').trim(),
-  };
-}
-
-export function parseArgumentHint(argumentHint = '') {
-  if (!argumentHint) return [];
-
-  const args = [];
-  const tokenRegex = /<([a-z0-9_-]+)>|\[([A-Z0-9_-]+)=<value>\]/gi;
-
-  for (const match of argumentHint.matchAll(tokenRegex)) {
-    if (match[1]) {
-      args.push({ name: match[1], required: true });
-    } else if (match[2]) {
-      args.push({ name: match[2].toLowerCase(), required: false });
-    }
-  }
-
-  return args;
-}
-
-export function buildArgumentHint(args = []) {
-  return args
-    .map(arg => (arg.required ? `<${arg.name}>` : `[${arg.name.toUpperCase()}=<value>]`))
-    .join(' ');
 }
 
 /**
@@ -181,68 +235,102 @@ export function readFilesRecursive(dir, fileList = []) {
 }
 
 /**
- * Read and parse all source files (unified skills architecture)
- * All source lives in source/skills/{name}/SKILL.md
- * Returns { skills } where each skill has userInvocable flag
+ * Read and parse the impeccable skill source.
+ * After v3.0 the repo holds exactly one user-invocable skill, flat at skill/.
+ * Returns { skills: [oneEntry] } so downstream array-shaped consumers stay happy.
+ *
+ * The source manifest is `SKILL.src.md`, NOT `SKILL.md`, on purpose: the
+ * `vercel-labs/skills` CLI discovers a skill by finding a literal `SKILL.md`
+ * and copies that directory verbatim. If `skill/SKILL.md` existed, `npx skills`
+ * would install the UNCOMPILED source (unresolved `{{placeholders}}`, no vendored
+ * detector). Naming it `SKILL.src.md` hides it from discovery so the CLI falls
+ * through to a compiled harness dir (`.agents/skills/impeccable`) instead.
  */
 export function readSourceFiles(rootDir) {
-  const skillsDir = path.join(rootDir, 'source/skills');
-
+  const skillDir = path.join(rootDir, 'skill');
   const skills = [];
 
-  if (fs.existsSync(skillsDir)) {
-    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+  const skillMdPath = path.join(skillDir, 'SKILL.src.md');
+  if (!fs.existsSync(skillMdPath)) {
+    return { skills };
+  }
 
-    for (const entry of entries) {
-      const entryPath = path.join(skillsDir, entry.name);
+  const content = fs.readFileSync(skillMdPath, 'utf-8');
+  const { frontmatter, body } = parseFrontmatter(content);
 
-      if (entry.isDirectory()) {
-        // Directory-based skill with potential references
-        const skillMdPath = path.join(entryPath, 'SKILL.md');
-        if (fs.existsSync(skillMdPath)) {
-          const content = fs.readFileSync(skillMdPath, 'utf-8');
-          const { frontmatter, body } = parseFrontmatter(content);
-          const extracted = extractSkillArgsMetadata(body);
-          const args = frontmatter.args?.length
-            ? frontmatter.args
-            : extracted.args.length
-              ? extracted.args
-              : parseArgumentHint(frontmatter['argument-hint']);
-
-          // Read reference files if they exist
-          const references = [];
-          const referenceDir = path.join(entryPath, 'reference');
-          if (fs.existsSync(referenceDir)) {
-            const refFiles = fs.readdirSync(referenceDir).filter(f => f.endsWith('.md'));
-            for (const refFile of refFiles) {
-              const refPath = path.join(referenceDir, refFile);
-              const refContent = fs.readFileSync(refPath, 'utf-8');
-              references.push({
-                name: path.basename(refFile, '.md'),
-                content: refContent,
-                filePath: refPath
-              });
-            }
-          }
-
-          skills.push({
-            name: frontmatter.name || entry.name,
-            description: frontmatter.description || '',
-            license: frontmatter.license || '',
-            compatibility: frontmatter.compatibility || '',
-            metadata: frontmatter.metadata || null,
-            allowedTools: frontmatter['allowed-tools'] || '',
-            userInvocable: frontmatter['user-invocable'] === true || frontmatter['user-invocable'] === 'true',
-            argumentHint: frontmatter['argument-hint'] || '',
-            context: frontmatter.context || null,
-            body: extracted.body,
-            filePath: skillMdPath,
-            references
-          });
-        }
-      }
+  const references = [];
+  const referenceDir = path.join(skillDir, 'reference');
+  if (fs.existsSync(referenceDir)) {
+    const refFiles = fs.readdirSync(referenceDir).filter(f => f.endsWith('.md'));
+    for (const refFile of refFiles) {
+      const refPath = path.join(referenceDir, refFile);
+      references.push({
+        name: path.basename(refFile, '.md'),
+        content: fs.readFileSync(refPath, 'utf-8'),
+        filePath: refPath
+      });
     }
   }
+
+  // PER_PROJECT_SCRIPT_ARTIFACTS (defined at module top) are excluded from
+  // the distributable skill so the build never bundles one project's state
+  // into another's.
+  const scripts = [];
+  const scriptsDir = path.join(skillDir, 'scripts');
+  if (fs.existsSync(scriptsDir)) {
+    scripts.push(...readSkillScripts(scriptsDir));
+  }
+  scripts.push(...readDetectorBundleScripts(rootDir));
+
+  const agents = [];
+  const agentsDir = path.join(skillDir, 'agents');
+  if (fs.existsSync(agentsDir)) {
+    const agentFiles = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
+    for (const agentFile of agentFiles) {
+      const agentPath = path.join(agentsDir, agentFile);
+      const agentContent = fs.readFileSync(agentPath, 'utf-8');
+      const { frontmatter: agentFrontmatter, body: agentBody } = parseFrontmatter(agentContent);
+      const name = agentFrontmatter.name || path.basename(agentFile, '.md');
+      const providersRaw = agentFrontmatter.providers;
+      let providers = null;
+      if (Array.isArray(providersRaw)) {
+        providers = providersRaw.map(p => String(p).trim()).filter(Boolean);
+      } else if (typeof providersRaw === 'string' && providersRaw.trim()) {
+        providers = providersRaw.split(',').map(p => p.trim()).filter(Boolean);
+      }
+      agents.push({
+        name,
+        codexName: agentFrontmatter['codex-name'] || name.replace(/-/g, '_'),
+        claudeName: agentFrontmatter['claude-name'] || name,
+        description: agentFrontmatter.description || '',
+        tools: agentFrontmatter.tools || '',
+        model: agentFrontmatter.model || '',
+        effort: agentFrontmatter.effort || '',
+        maxTurns: agentFrontmatter['max-turns'] ? Number(agentFrontmatter['max-turns']) : '',
+        nicknameCandidates: agentFrontmatter['nickname-candidates'] || [],
+        providers,
+        body: agentBody,
+        filePath: agentPath,
+      });
+    }
+  }
+
+  skills.push({
+    name: frontmatter.name || 'impeccable',
+    description: frontmatter.description || '',
+    license: frontmatter.license || '',
+    compatibility: frontmatter.compatibility || '',
+    metadata: frontmatter.metadata || null,
+    allowedTools: frontmatter['allowed-tools'] || '',
+    userInvocable: frontmatter['user-invocable'] === true || frontmatter['user-invocable'] === 'true',
+    argumentHint: frontmatter['argument-hint'] || '',
+    context: frontmatter.context || null,
+    body,
+    filePath: skillMdPath,
+    references,
+    scripts,
+    agents
+  });
 
   return { skills };
 }
@@ -275,12 +363,114 @@ export function writeFile(filePath, content) {
 }
 
 /**
- * Extract patterns from frontend-design SKILL.md
- * Parses **DO**: and **DON'T**: lines, grouped by section headings
+ * Extract DO/DON'T patterns from a skill markdown file, grouped by section
+ * (h3 `### ` headings). Recognizes both formats:
+ *   - Markdown bullet form:  `**DO**: …`  /  `**DON'T**: …`
+ *   - Prose form:            `DO …`       /  `DO NOT …`
+ *
+ * Defaults to the main impeccable SKILL.md but accepts any relative path so
+ * rules in `cli/engine/detect-antipatterns.mjs` can anchor to register-specific
+ * reference files (e.g. `reference/editorial.md`) via an optional `skillFile`
+ * field. Callers that don't pass `relativePath` get the legacy behavior.
+ *
  * Returns { patterns: [...], antipatterns: [...] }
  */
-export function readPatterns(rootDir) {
-  const skillPath = path.join(rootDir, 'source/skills/frontend-design/SKILL.md');
+// Curated short-list for the homepage Antidote section. Intentionally
+// hand-written (not auto-extracted) so the copy stays tight and
+// editorial. The long-form catalog lives on /slop — this is the teaser.
+const CURATED_CATEGORIES = [
+  {
+    name: 'Typography',
+    do: [
+      'Pair a distinctive display face with a restrained body face; vary across projects.',
+      'Use a ≥1.25 scale ratio between hierarchy steps. Flat scales read as bland.',
+      'Cap body line length at 65–75ch. Wider is fatiguing.',
+    ],
+    dont: [
+      'Inter, Roboto, Plex, Fraunces, or any other reflex default. Look further.',
+      'Monospace as lazy shorthand for "technical."',
+      'Long passages in uppercase. Reserve all-caps for short labels.',
+    ],
+  },
+  {
+    name: 'Color & Contrast',
+    do: [
+      'Use OKLCH. Reduce chroma near lightness extremes.',
+      'Tint neutrals toward the brand hue. Chroma 0.005–0.01 is enough.',
+      'Pick a color strategy before picking colors (Restrained, Committed, Full, Drenched).',
+    ],
+    dont: [
+      'Pure #000 or #fff. Always tint.',
+      'Dark mode + purple-to-cyan gradients. The AI tell.',
+      'Gradient text via background-clip. Use weight or size for emphasis.',
+    ],
+  },
+  {
+    name: 'Layout & Space',
+    do: [
+      'Vary spacing for rhythm. Tight groupings, generous separations.',
+      'Use the simplest tool: Flexbox for 1D, Grid for 2D, plain flow often enough.',
+      'Let whitespace carry hierarchy before reaching for color or scale.',
+    ],
+    dont: [
+      'Wrap everything in cards. Nested cards are always wrong.',
+      'Identical card grids of icon + heading + text, repeated endlessly.',
+      'The hero-metric template: big number, small label, supporting stats, gradient accent.',
+    ],
+  },
+  {
+    name: 'Visual Details',
+    do: [
+      'Commit to an aesthetic direction and execute it with precision.',
+      'Use ornament only where it earns its place.',
+    ],
+    dont: [
+      'Side-stripe borders (border-left/-right > 1px). The dashboard tell.',
+      'Glassmorphism everywhere. Rare and purposeful or nothing.',
+      'Rounded rectangles with generic drop shadows. "Could be any AI output."',
+    ],
+  },
+  {
+    name: 'Motion',
+    do: [
+      'Use transform and opacity. Animate the composited properties only.',
+      'Ease out with exponential curves (quart / quint / expo).',
+      'Respect prefers-reduced-motion on every transition.',
+    ],
+    dont: [
+      'Animate layout (width, height, padding, margin).',
+      'Bounce or elastic easing. Feels dated and tacky.',
+      'Decorative motion for its own sake. Motion should signal state.',
+    ],
+  },
+  {
+    name: 'Interaction',
+    do: [
+      'Use optimistic UI: update immediately, sync later.',
+      'Design empty states that teach the interface, not just say "nothing here."',
+      'Progressive disclosure: start simple, reveal sophistication on demand.',
+    ],
+    dont: [
+      'Make every button primary. Hierarchy matters.',
+      'Default to a modal. Exhaust inline alternatives first.',
+      'Repeat information the user can already see.',
+    ],
+  },
+];
+
+export function readPatterns(_rootDir, _relativePath) {
+  // Hand-curated list — see CURATED_CATEGORIES above. The homepage
+  // Antidote teaser uses this; the full catalog lives on /slop.
+  return {
+    patterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.do })),
+    antipatterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.dont })),
+  };
+}
+
+// Previous SKILL.md parser retained below but disabled; kept as a
+// reference for how prefix-style extraction used to work.
+function _legacyReadPatterns(rootDir, relativePath = 'skill/SKILL.src.md') {
+  const skillPath = path.join(rootDir, relativePath);
 
   if (!fs.existsSync(skillPath)) {
     return { patterns: [], antipatterns: [] };
@@ -292,6 +482,17 @@ export function readPatterns(rootDir) {
   const patternsMap = {};  // category -> items[]
   const antipatternsMap = {};  // category -> items[]
   let currentSection = null;
+
+  const pushPattern = (item) => {
+    if (!currentSection) return;
+    if (!patternsMap[currentSection]) patternsMap[currentSection] = [];
+    patternsMap[currentSection].push(item);
+  };
+  const pushAntipattern = (item) => {
+    if (!currentSection) return;
+    if (!antipatternsMap[currentSection]) antipatternsMap[currentSection] = [];
+    antipatternsMap[currentSection].push(item);
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -306,23 +507,35 @@ export function readPatterns(rootDir) {
       continue;
     }
 
-    // Parse **DO**: lines
-    if (trimmed.startsWith('**DO**:') && currentSection) {
-      const item = trimmed.slice(7).trim();
-      if (!patternsMap[currentSection]) {
-        patternsMap[currentSection] = [];
-      }
-      patternsMap[currentSection].push(item);
+    // Markdown bullet form (legacy): **DO**: ... and **DON'T**: ...
+    if (trimmed.startsWith('**DO**:')) {
+      pushPattern(trimmed.slice(7).trim());
+      continue;
+    }
+    if (trimmed.startsWith("**DON'T**:")) {
+      pushAntipattern(trimmed.slice(10).trim());
       continue;
     }
 
-    // Parse **DON'T**: lines
-    if (trimmed.startsWith("**DON'T**:") && currentSection) {
-      const item = trimmed.slice(10).trim();
-      if (!antipatternsMap[currentSection]) {
-        antipatternsMap[currentSection] = [];
-      }
-      antipatternsMap[currentSection].push(item);
+    // XML-block prose form (current). Both space and colon variants:
+    //   "DO NOT use ..."  /  "DO NOT: Use ..."
+    //   "DO use ..."      /  "DO: Use ..."
+    // IMPORTANT: check `DO NOT` BEFORE `DO` so the prefix doesn't get
+    // gobbled by the wrong matcher.
+    if (trimmed.startsWith('DO NOT: ')) {
+      pushAntipattern(trimmed.slice('DO NOT: '.length).trim());
+      continue;
+    }
+    if (trimmed.startsWith('DO NOT ')) {
+      pushAntipattern(trimmed.slice('DO NOT '.length).trim());
+      continue;
+    }
+    if (trimmed.startsWith('DO: ')) {
+      pushPattern(trimmed.slice('DO: '.length).trim());
+      continue;
+    }
+    if (trimmed.startsWith('DO ')) {
+      pushPattern(trimmed.slice('DO '.length).trim());
       continue;
     }
   }
@@ -370,16 +583,17 @@ export const PROVIDER_PLACEHOLDERS = {
   'codex': {
     model: 'GPT',
     config_file: 'AGENTS.md',
-    ask_instruction: 'ask the user directly to clarify what you cannot infer.',
+    ask_instruction: "STOP and use Codex's structured user-input/question tool when available; if unavailable, ask directly in chat to clarify what you cannot infer.",
     command_prefix: '$'
-  },
-  'copilot-cli': {
-    model: 'GitHub Copilot',
-    config_file: '.github/copilot-instructions.md',
-    ask_instruction: 'ask the user directly to clarify what you cannot infer.'
   },
   'agents': {
     model: 'the model',
+    config_file: '.github/copilot-instructions.md',
+    ask_instruction: 'ask the user directly to clarify what you cannot infer.',
+    command_prefix: '/'
+  },
+  'copilot-cli': {
+    model: 'GitHub Copilot',
     config_file: '.github/copilot-instructions.md',
     ask_instruction: 'ask the user directly to clarify what you cannot infer.',
     command_prefix: '/'
@@ -402,44 +616,108 @@ export const PROVIDER_PLACEHOLDERS = {
     ask_instruction: 'ask the user directly to clarify what you cannot infer.',
     command_prefix: '/'
   },
+  'qoder': {
+    model: 'the model',
+    config_file: 'AGENTS.md',
+    ask_instruction: 'ask the user directly to clarify what you cannot infer.',
+    command_prefix: '/'
+  },
   'trae': {
     model: 'the model',
     config_file: 'RULES.md',
     ask_instruction: 'ask the user directly to clarify what you cannot infer.',
     command_prefix: '/'
+  },
+  'rovo-dev': {
+    model: 'Rovo Dev',
+    config_file: 'AGENTS.md',
+    ask_instruction: 'ask the user directly to clarify what you cannot infer.',
+    command_prefix: '/'
   }
 };
+
+export const PROVIDER_BLOCK_TAGS = new Set([
+  'agents',
+  'claude',
+  'claude-code',
+  'codex',
+  'cursor',
+  'gemini',
+  'github',
+  'kiro',
+  'opencode',
+  'pi',
+  'qoder',
+  'rovo-dev',
+  'trae',
+  'trae-cn',
+]);
+
+/**
+ * Compile harness-conditional markdown blocks.
+ *
+ * Known provider blocks must be written as standalone tags:
+ *
+ * <codex>
+ * Codex-only instructions.
+ * </codex>
+ *
+ * Matching blocks keep their body and drop the tags. Non-matching blocks are
+ * removed. Unknown tags are preserved so ordinary markdown/HTML is untouched.
+ */
+export function compileProviderBlocks(content, activeTags = []) {
+  const activeTagSet = new Set(activeTags);
+  const providerBlockPattern = /(^|\r?\n)[ \t]*<([a-z][a-z0-9-]*)>[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*<\/\2>[ \t]*(?=\r?\n|$)/g;
+  let didCompileBlock = false;
+
+  const compiled = content.replace(providerBlockPattern, (match, prefix, tag, body) => {
+    if (!PROVIDER_BLOCK_TAGS.has(tag)) return match;
+    didCompileBlock = true;
+    return activeTagSet.has(tag) ? `${prefix}${body}` : prefix;
+  });
+
+  return didCompileBlock ? compiled.replace(/(?:\r?\n){3,}/g, '\n\n') : compiled;
+}
+
+/**
+ * Strip `<!-- rule:id -->` markers from skill markdown.
+ *
+ * External eval tooling can pin each instruction line to a stable ID.
+ * Markers in the source keep that mapping verifiable in lock-step with
+ * the file. Staged SKILL.md files should not expose them, so this strip
+ * runs during the per-provider staging in factory.js.
+ *
+ * Removes the marker plus any leading whitespace on the same line, so
+ * `something. <!-- rule:foo -->` becomes `something.` and a standalone
+ * marker line collapses to an empty line that the existing
+ * blank-line normalization in compileProviderBlocks reaps.
+ */
+export function stripRuleMarkers(content) {
+  return content.replace(/[ \t]*<!--\s*rule:[a-z0-9-]+\s*-->/g, '');
+}
 
 /**
  * Replace all {{placeholder}} tokens with provider-specific values
  */
-/**
- * Prefix skill cross-references in body text.
- * Replaces patterns like `/skillname` and `the skillname skill` with prefixed versions.
- *
- * @param {string} content - The skill body text
- * @param {string} prefix - The prefix to add (e.g., 'i-')
- * @param {string[]} skillNames - Array of all skill names
- * @param {string} commandPrefix - The command invocation prefix (e.g., '/' or '$')
- */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function prefixSkillReferences(content, prefix, skillNames, commandPrefix = '/') {
   if (!prefix || !skillNames || skillNames.length === 0) return content;
 
   let result = content;
-  // Sort by length descending to avoid partial matches (e.g. 'teach-impeccable' before 'teach')
   const sorted = [...skillNames].sort((a, b) => b.length - a.length);
 
   for (const name of sorted) {
     const prefixed = `${prefix}${name}`;
-
-    // Replace command invocations (e.g., `/skillname` or `$skillname`) with prefixed versions
     const escapedPrefix = escapeRegex(commandPrefix);
+
     result = result.replace(
       new RegExp(`${escapedPrefix}(?=${escapeRegex(name)}(?:[^a-zA-Z0-9_-]|$))`, 'g'),
       `${commandPrefix}${prefix}`
     );
 
-    // Replace `the skillname skill` references
     result = result.replace(
       new RegExp(`(the) ${escapeRegex(name)} skill`, 'gi'),
       (_, article) => `${article} ${prefixed} skill`
@@ -449,19 +727,39 @@ export function prefixSkillReferences(content, prefix, skillNames, commandPrefix
   return result;
 }
 
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const EXCLUDED_FROM_SUGGESTIONS = new Set([
+  'impeccable',               // foundational skill, not a steering command
+  'teach-impeccable',         // deprecated shim
+  'frontend-design',          // deprecated shim
+]);
 
-const EXCLUDED_FROM_SUGGESTIONS = new Set(['teach-impeccable', 'i-teach-impeccable']);
+// Sub-commands of /impeccable that should appear in {{available_commands}}.
+// These are the commands that audit/critique/etc. reference when suggesting next steps.
+const IMPECCABLE_SUB_COMMANDS = [
+  'adapt', 'animate', 'audit', 'bolder', 'clarify', 'colorize',
+  'critique', 'delight', 'distill', 'document', 'harden', 'layout',
+  'onboard', 'optimize', 'overdrive', 'polish', 'quieter', 'shape', 'typeset',
+];
 
 export function replacePlaceholders(content, provider, commandNames = [], allSkillNames = []) {
   const placeholders = PROVIDER_PLACEHOLDERS[provider] || PROVIDER_PLACEHOLDERS['cursor'];
   const cmdPrefix = placeholders.command_prefix || '/';
-  const commandList = commandNames
-    .filter(n => !EXCLUDED_FROM_SUGGESTIONS.has(n))
-    .map(n => `${cmdPrefix}${n}`)
-    .join(', ');
+
+  // Build the available_commands list.
+  // After the v3.0 consolidation, commands are sub-commands of /impeccable.
+  // If there's only one user-invocable skill (impeccable), generate sub-command references.
+  // Otherwise fall back to listing skill names (backwards compat for forks).
+  const nonExcluded = commandNames.filter(n => !EXCLUDED_FROM_SUGGESTIONS.has(n));
+  let commandList;
+  if (nonExcluded.length === 0) {
+    // Single-skill architecture: list sub-commands as /impeccable <sub>
+    commandList = IMPECCABLE_SUB_COMMANDS
+      .map(n => `${cmdPrefix}impeccable ${n}`)
+      .join(', ');
+  } else {
+    // Multi-skill architecture (backwards compat)
+    commandList = nonExcluded.map(n => `${cmdPrefix}${n}`).join(', ');
+  }
 
   let result = content
     .replace(/\{\{model\}\}/g, placeholders.model)
@@ -486,18 +784,69 @@ export function replacePlaceholders(content, provider, commandNames = [], allSki
 }
 
 /**
+ * Decide whether a YAML scalar string value must be quoted to survive parsing.
+ *
+ * Plain (unquoted) YAML scalars cannot contain `: ` or ` #`, cannot start with
+ * a YAML indicator character, cannot look like a boolean/null/number, and
+ * cannot carry leading/trailing whitespace. parseFrontmatter strips surrounding
+ * quotes on input, so we must re-detect the need to quote on output — otherwise
+ * descriptions like "Handles: critique/review..." round-trip into invalid YAML.
+ */
+function yamlNeedsQuoting(value) {
+  if (typeof value !== 'string') return false;
+  if (value === '') return true;
+  // Leading or trailing whitespace
+  if (/^\s|\s$/.test(value)) return true;
+  // Starts with a YAML flow/indicator character
+  if (/^[\[\]{},&*!|>'"%@`#]/.test(value)) return true;
+  // Starts with `?`, `:`, or `-` followed by space or end of string
+  if (/^[?:-](\s|$)/.test(value)) return true;
+  // Contains `: ` (ends plain scalar) or ` #` (starts comment), or ends with `:`
+  if (/: |\s#|:$/.test(value)) return true;
+  // Reserved keywords that YAML 1.1 parsers coerce to boolean/null
+  if (/^(true|false|null|yes|no|on|off|~)$/i.test(value)) return true;
+  // Looks like a number
+  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value)) return true;
+  return false;
+}
+
+function formatYamlScalar(value) {
+  if (typeof value !== 'string') return String(value);
+  if (yamlNeedsQuoting(value)) {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  return value;
+}
+
+function appendYamlObject(lines, data, indent = 0) {
+  const space = ' '.repeat(indent);
+
+  for (const [key, value] of Object.entries(data)) {
+    if (Array.isArray(value)) {
+      lines.push(`${space}${key}:`);
+      for (const item of value) {
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          lines.push(`${space}  -`);
+          appendYamlObject(lines, item, indent + 4);
+        } else {
+          lines.push(`${space}  - ${formatYamlScalar(item)}`);
+        }
+      }
+    } else if (value && typeof value === 'object') {
+      lines.push(`${space}${key}:`);
+      appendYamlObject(lines, value, indent + 2);
+    } else if (typeof value === 'boolean') {
+      lines.push(`${space}${key}: ${value}`);
+    } else {
+      lines.push(`${space}${key}: ${formatYamlScalar(value)}`);
+    }
+  }
+}
+
+/**
  * Generate YAML frontmatter string
  */
 export function generateYamlFrontmatter(data) {
-  const quoteYamlScalar = (value) => {
-    if (typeof value !== 'string') return value;
-
-    const requiresQuotes = /[[\]{}]|:\s|^\s|\s$|^[-?:,&*!#|>'"%@`]/.test(value);
-    if (!requiresQuotes) return value;
-
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  };
-
   const lines = ['---'];
 
   for (const [key, value] of Object.entries(data)) {
@@ -505,21 +854,29 @@ export function generateYamlFrontmatter(data) {
       lines.push(`${key}:`);
       for (const item of value) {
         if (typeof item === 'object') {
-          lines.push(`  - name: ${item.name}`);
-          if (item.description) lines.push(`    description: ${item.description}`);
+          lines.push(`  - name: ${formatYamlScalar(item.name)}`);
+          if (item.description) lines.push(`    description: ${formatYamlScalar(item.description)}`);
           if (item.required !== undefined) lines.push(`    required: ${item.required}`);
         } else {
-          lines.push(`  - ${item}`);
+          lines.push(`  - ${formatYamlScalar(item)}`);
         }
       }
     } else if (typeof value === 'boolean') {
       lines.push(`${key}: ${value}`);
     } else {
-      const needsQuoting = typeof value === 'string' && /^[\[{]/.test(value);
-      lines.push(`${key}: ${needsQuoting ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : value}`);
+      lines.push(`${key}: ${formatYamlScalar(value)}`);
     }
   }
 
   lines.push('---');
+  return lines.join('\n');
+}
+
+/**
+ * Generate a plain YAML document string.
+ */
+export function generateYamlDocument(data) {
+  const lines = [];
+  appendYamlObject(lines, data);
   return lines.join('\n');
 }

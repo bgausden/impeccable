@@ -1,266 +1,78 @@
-# Impeccable
+# Repository Guidelines
 
-The vocabulary you didn't know you needed. 1 skill, 20 commands, and curated anti-patterns for impeccable style. Works with Cursor, Claude Code, GitHub Copilot CLI, Gemini CLI, Codex CLI, VS Code Copilot, and more.
+> **Fork note:** This repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. It keeps upstream's design vocabulary and adds fork-specific packaging and maintenance changes.
 
-> Fork note: this repository is a lightly customized fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable), maintained by Barry Gausden. Preserve upstream attribution when editing docs, metadata, and releases.
+## Project Structure & Module Organization
 
-## Repository Purpose
+`skill/` is the source of truth for the Impeccable skill: `SKILL.src.md`, `reference/`, `scripts/`, and `agents/`. Build logic lives in `scripts/`, with provider configs in `scripts/lib/transformers/`. The CLI and anti-pattern detector live in `cli/`, the browser extension in `extension/`, the Astro website in `site/`, Cloudflare Pages Functions in `functions/`, and regression coverage in `tests/` with fixtures under `tests/fixtures/`. `dist/` and `build/` are generated and gitignored. The root harness folders (`.agents/`, `.claude/`, `.cursor/`, etc.) and `plugin/` are generated distribution artifacts that are tracked for direct repo installs, not hand-authored source.
 
-Maintain a **single source of truth** for design-focused skills and commands, then automatically transform them into provider-specific formats. Each provider has different capabilities (frontmatter, arguments, modular files), so we use a build system to generate appropriate outputs.
+## Build, Test, and Development Commands
 
-## Architecture: Option A (Feature-Rich Source)
+- `bun run dev` - start the local Bun server.
+- `bun run build` - source-first build: regenerate `dist/`, derived site assets, and validation output without syncing tracked harness folders.
+- `bun run build:release` - release/distribution build: run the full build and sync tracked root harness folders plus `plugin/`.
+- `bun run rebuild` - clean and rebuild everything from scratch without syncing tracked harness folders.
+- `bun run rebuild:release` - clean and rebuild everything, including tracked harness output sync.
+- `bun test tests/build.test.js` - run a focused Bun test.
+- `bun run test` - run the full Bun + Node test suite.
+- `bun run test:live-e2e` - opt-in live-mode E2E against framework fixtures (~2 min; needs `npx playwright install chromium` once).
+- `bun run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min; runs claude-sonnet-4-6 / gpt-5.5 / gemini-3.1-flash-lite, roughly $0.50-1.50 per run on the production-tier models, needs `.env` with provider keys).
+- `bun run build:browser` / `bun run build:extension` - rebuild browser-specific bundles.
 
-We use a **feature-rich source format** that gets transformed for each provider:
+Run `bun run build` after changing anything in `skill/`, transformer code, or user-facing counts. It validates the generated distribution under `dist/` without touching tracked root harness outputs. Use `bun run build:release` only when intentionally refreshing generated provider permutations for release/main-sync or build-system work.
 
-- **Source files** (`source/`): Full metadata with YAML frontmatter, args, descriptions
-- **Build system** (`scripts/`): Transforms source → provider-specific formats
-- **Distribution** (`dist/`): Committed output files for each supported provider
+## Generated Provider Output Policy
 
-### Why Option A?
+The root harness folders (`.agents/skills/`, `.claude/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.github/skills/`, `.kiro/skills/`, `.opencode/skills/`, `.pi/skills/`, `.qoder/skills/`, `.rovodev/skills/`, `.trae*/skills/`) and `plugin/` stay tracked so `main` remains installable for direct GitHub, `npx skills`, and submodule users. They are still generated artifacts.
 
-Cursor doesn't support frontmatter or arguments (lowest common denominator). Instead of limiting all providers, we:
-1. Author with full metadata in source files
-2. Generate full-featured versions for providers that support it (Claude Code, Gemini, Codex)
-3. Generate downgraded versions for Cursor (strip frontmatter, rely on appending)
+Normal development should be source-first: stage changes in `skill/`, `scripts/`, `cli/`, `site/`, `extension/`, `functions/`, and `tests/`; leave generated harness churn unstaged unless the user asked for it. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits generated provider output directly back to `main`. Treat generated harness diffs as release artifacts and keep them out of feature PRs unless they are the point of the PR.
 
-## Repository Structure
+## Sandbox gotchas for Codex agents
 
-```
-impeccable/
-├── source/                      # EDIT THESE! Single source of truth
-│   ├── copilot-cli/             # Copilot CLI instruction sources
-│   │   ├── copilot-instructions.md
-│   │   └── instructions/*.instructions.md
-│   └── skills/                  # Skill definitions with frontmatter
-│       └── */SKILL.md
-├── dist/                        # Generated outputs (committed for users)
-│   ├── cursor/                  # Commands + Agent Skills
-│   │   └── .cursor/
-│   │       ├── commands/*.md
-│   │       └── skills/*/SKILL.md
-│   ├── claude-code/             # Full featured
-│   │   └── .claude/
-│   │       ├── commands/*.md
-│   │       └── skills/*/SKILL.md
-│   ├── gemini/                  # TOML commands + modular skills
-│   │   ├── .gemini/
-│   │   │   └── commands/*.toml
-│   │   ├── GEMINI.md
-│   │   └── GEMINI.*.md
-│   ├── copilot-cli/             # Skills + instructions for GitHub Copilot CLI
-│   │   └── .github/
-│   │       ├── skills/*/SKILL.md
-│   │       ├── copilot-instructions.md
-│   │       └── instructions/*.instructions.md
-│   └── codex/                   # Custom prompts + Agent Skills
-│       └── .codex/
-│           ├── prompts/*.md
-│           └── skills/*/SKILL.md
-├── public/                      # Local preview site
-│   ├── index.html               # Main page
-│   ├── css/                     # Modular CSS (9 files)
-│   │   ├── main.css             # Entry point with imports
-│   │   ├── tokens.css           # Design system
-│   │   └── ...                  # Component styles
-│   └── app.js                   # Vanilla JS
-├── server/                      # Node.js dev server (local dev only)
-│   ├── index.js                 # Serves website + API routes
-│   └── lib/
-│       └── api-handlers.js      # Shared API logic (used by both server & functions)
-├── scripts/                     # Build system (Node.js + tsx)
-│   ├── build.js                 # Main orchestrator
-│   ├── lib/
-│   │   ├── utils.js             # Shared utilities
-│   │   ├── zip.js               # ZIP generation
-│   │   └── transformers/        # Provider-specific transformers
-│   │       ├── cursor.js
-│   │       ├── claude-code.js
-│   │       ├── gemini.js
-│   │       └── codex.js
-├── README.md                    # End user documentation
-├── DEVELOP.md                   # Contributor documentation
-└── package.json                 # npm scripts
-```
+Some repo workflows need to run outside the sandbox in the desktop app:
 
-## Local Preview Site
+- GitHub SSH operations that depend on the 1Password SSH agent, such as `gh pr checkout`, may fail in the sandbox with `sign_and_send_pubkey` or no 1Password approval prompt. Rerun them outside the sandbox instead of falling back to unrelated workarounds.
+- `bun run build:release` rewrites committed harness directories such as `.agents/skills/`. In the sandbox, Bun can hit filesystem errors while removing/recreating those trees (for example `EFAULT` on `.agents/skills`). Rerun the release build outside the sandbox before treating it as a real build failure.
+- Puppeteer/headless-Chrome tests, especially `node --test tests/detect-antipatterns-browser.test.mjs` and the browser portion of `bun run test`, can hang in the sandbox while launching Chrome. Run them outside the sandbox for authoritative results.
+- The jsdom fixture suite is intentionally run with Node, not Bun: use `node --test tests/detect-antipatterns-fixtures.test.mjs` or the `bun run test` script. A direct `bun test tests/detect-antipatterns-fixtures.test.mjs` can time out and is not the supported signal.
 
-**Tech Stack:**
-- Vanilla JavaScript (no frameworks)
-- Modern CSS with Tailwind CLI plus native CSS features (nesting, OKLCH colors, @import)
-- **Local Development**: Node.js server with native routes (`server/index.js`)
-- **Static Output**: `npm run build` copies the preview site to `build/`
+## Coding Style & Naming Conventions
 
-**Preview Setup:**
-- `/server` contains the Node.js dev server used for local development
-- `/server/lib/api-handlers.js` contains the shared handlers for preview API routes
-- `/public` contains the static site assets and demos
+Use ESM, semicolons, and the existing two-space indentation style in JS, HTML, and CSS. Prefer small, single-purpose modules over large abstractions. Keep filenames descriptive and lowercase with hyphens where needed; skill entrypoints stay as `SKILL.md`, helper scripts use `.js` or `.mjs`. In source frontmatter, use clear kebab-case names and concise descriptions. There is no dedicated formatter or linter configured here, so match surrounding code closely.
 
-**Design:**
-- Editorial precision aesthetic
-- Cormorant Garamond (display) + Instrument Sans (body)
-- OKLCH color space for vibrant, perceptually uniform colors
-- Editorial sidebar layout (title left, content right)
-- Modular CSS architecture (9 files)
+## Testing Guidelines
 
-**API Endpoints** (local dev server):
-- `/` - Homepage (static HTML)
-- `/api/skills` - JSON list of all skills
-- `/api/commands` - JSON list of all commands
-- `/api/download/[type]/[provider]/[id]` - Individual file download
-- `/api/download/bundle/[provider]` - ZIP bundle download
+Tests use Bun’s test runner plus Node’s built-in `--test`. Name tests `*.test.js` or `*.test.mjs` and place new fixtures near the behavior they cover, usually under `tests/fixtures/`. Prefer targeted test runs while iterating, then finish with `bun run test`. If you change generated outputs or provider transforms, verify both source parsing and at least one affected provider path in `dist/`.
 
-## Source File Format
+For changes to `skill/scripts/live-*.{mjs,js}` or `skill/scripts/live/**`, also run `bun run test:live-e2e` (kept out of the default suite because it does real `npm install` per fixture and boots framework dev servers). Scope to one fixture with `IMPECCABLE_E2E_ONLY=<fixture-name>` while iterating; pass `IMPECCABLE_E2E_DEBUG=1` for page-DOM and dev-server-log dumps on failure. Schema and authoring guide for new fixtures live in `tests/framework-fixtures/README.md`.
 
-### Commands (`source/commands/*.md`)
+Set `IMPECCABLE_E2E_AGENT=llm` to swap the deterministic fake agent for an API-backed one (`tests/live-e2e/agents/llm-agent.mjs`). Claude Haiku 4.5 is the primary path whenever `ANTHROPIC_API_KEY` is set. DeepSeek V4 Flash is the secondary cheap fallback when only `DEEPSEEK_API_KEY` is set, and can be forced with `IMPECCABLE_E2E_LLM_PROVIDER=deepseek` or `bun run test:live-e2e -- --llm-provider=deepseek`; override either model via `IMPECCABLE_E2E_LLM_MODEL` or `--llm-model=<model>`. Tests skip cleanly when the selected provider key is unset. This path hits the API — use it for verification, not CI.
 
-```yaml
----
-name: command-name
-description: Clear description of what this command does
-args:
-  - name: argname
-    description: Argument description
-    required: false
----
+For changes to `skill/SKILL.src.md`'s Setup section, `skill/scripts/context.mjs`, or any Setup-touching reference file (`init.md`, `document.md`, `brand.md`, `product.md`, sub-command refs), also run `bun run test:skill-behavior`. The suite spawns real LLMs (claude-sonnet-4-6, gpt-5.5, gemini-3.1-flash-lite, all three, every run) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCABLE_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline (21-22/24) and per-scenario assertions live in `tests/skill-behavior/README.md`.
 
-Command prompt here. Use {{argname}} placeholders for arguments.
-```
+## Anti-pattern detection rules
 
-### Skills (`source/skills/*.md`)
+`cli/engine/detect-antipatterns.mjs` is the source of truth for the rule engine. It feeds the CLI, the site overlay (`cli/engine/detect-antipatterns-browser.js`, regenerated by `bun run build:browser`), the Chrome extension (`extension/detector/`, regenerated by `bun run build:extension`), and the homepage `DETECTION_COUNT` in `site/public/js/generated/counts.js` (regenerated by `bun run build`). After any rule change run all three builds plus `bun run test` so nothing drifts.
 
-```yaml
----
-name: skill-name
-description: Clear description of what this skill provides
-argument-hint: [TARGET=<value>]   # Optional, for user-invocable skills
-user-invocable: true              # Optional
-license: License info (optional)
----
+TDD order is non-negotiable:
 
-<!-- impeccable-args
-- name: target
-  description: What to operate on
-  required: false
--->
+1. Add a fixture at `tests/fixtures/antipatterns/{rule-id}.html` with two columns (should-flag / should-pass), each case identified by a unique heading. ≥4 flag cases and ≥5 false-positive shapes. **Use explicit pixel dimensions in CSS** — jsdom does no layout.
+2. Add a failing test in `tests/detect-antipatterns-fixtures.test.mjs` using the snippet-substring pattern (regex `/"([^"]+)"/` against `SHOULD_FLAG` / `SHOULD_PASS` lists).
+3. Add the rule entry to the `ANTIPATTERNS` array (`id`, `category` = `slop` or `quality`, `name`, `description`, optional `skillSection` / `skillGuideline`).
+4. Implement a pure `checkXxx(opts)` returning `[{ id, snippet }]` — no DOM access inside.
+5. Add two adapters that wrap the pure check: `checkElementXxxDOM(el)` for the browser (`getComputedStyle` + `getBoundingClientRect`) and `checkElementXxx(el, tag, window)` for jsdom (`parseFloat(style.width)` instead of layout). Wire **both** adapters into **both** element loops in `cli/engine/detect-antipatterns.mjs` (browser loop ~line 1837, jsdom loop in `detectHtml` ~line 2058). Forgetting one is the most common mistake.
+6. Verify on a live page at `http://localhost:4321/fixtures/antipatterns/{rule-id}.html` and on the homepage. The two adapter paths can disagree.
 
-Skill instructions for the LLM here.
-```
+Conventions: wrap the identifying heading text in straight double quotes inside snippets so the fixture test can extract it. jsdom-specific helpers `resolveBackground()`, `resolveGradientStops()`, and `parseGradientColors()` exist because `background:` shorthand isn't decomposed and computed colors aren't normalized in jsdom — use them. Reference rules to copy from: `side-tab` (border), `low-contrast` (color+gradient), `icon-tile-stack` (sibling relationship), `flat-type-hierarchy` (page-level).
 
-## Build System
+## Commit & Pull Request Guidelines
 
-Uses **npm + tsx** for builds. Modular architecture:
+Recent history favors short, imperative subjects such as `Fix: ...`, `Add ...`, `Improve ...`, or `Bump ...`. Keep commits focused and explain the user-facing impact when it is not obvious. PRs should summarize what changed, list validation performed, and call out whether generated provider output was intentionally omitted or intentionally refreshed. Include screenshots for visible `site/` changes and mention affected providers when transform behavior changes.
 
-- **`utils.js`**: Shared functions (parseFrontmatter, readSourceFiles, writeFile, etc.)
-- **Transformer pattern**: Each provider has one focused file
-- **Registry**: `transformers/index.js` exports all transformers
-- **Main script**: `build.js` orchestrates everything (~50 lines)
+## Releases
 
-Run: `npm run build`
+Tags are per-component because the three components ship independently: `skill-v` (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`), `cli-v` (`package.json`), `ext-v` (`extension/manifest.json`). Flow: bump the relevant manifest, add a changelog entry to `site/pages/index.astro` (skill = bare `vX.Y.Z`; CLI = `CLI vX.Y.Z`; extension = `Extension vX.Y.Z` — the prefix is how `scripts/release.mjs` finds the right block), commit, push, then `bun run release:<skill|cli|ext>` (or `--dry-run` first). The script refuses on a dirty tree, an unpushed HEAD, a missing changelog entry, or stale build outputs; skill and extension reruns of `bun run build:release` / `bun run build:extension` must produce zero diff. Skill releases attach `dist/universal.zip`; extension releases attach `dist/extension.zip`. CLI ships to npm via a separate `npm publish`, and the extension zip uploads to the Chrome Web Store manually — both reminded at the end of the script. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
 
-## Provider Transformations
+## Contributor Notes
 
-### 1. Cursor (Agent Skills Standard)
-- **Commands**: Body only → `dist/cursor/.cursor/commands/*.md` (no frontmatter support)
-- **Skills**: Agent Skills standard → `dist/cursor/.cursor/skills/{name}/SKILL.md`
-  - Full YAML frontmatter with name/description
-  - Reference files in skill subdirectories
-- **Installation**: Extract ZIP into your project root, creates `.cursor/` folder
-- **Note**: Agent Skills require Cursor nightly channel
-
-### 2. Claude Code (Full Featured)
-- **Commands**: Full YAML frontmatter → `dist/claude-code/.claude/commands/*.md`
-- **Skills**: Full YAML frontmatter → `dist/claude-code/.claude/skills/{name}/SKILL.md`
-- **Preserves**: All metadata, all args
-- **Format**: Matches [Anthropic Skills spec](https://github.com/anthropics/skills)
-- **Installation**: Extract ZIP into your project root, creates `.claude/` folder
-
-### 3. Gemini CLI (Full Featured)
-- **Commands**: TOML format → `dist/gemini/.gemini/commands/*.toml`
-  - Uses `description` and `prompt` keys
-  - Transforms `{{argname}}` → `{{args}}` (Gemini uses single args string)
-- **Skills**: Modular with imports → `dist/gemini/GEMINI.{name}.md` (root level)
-  - Main `GEMINI.md` uses `@./GEMINI.{name}.md` import syntax
-  - Gemini automatically loads imported files
-- **Installation**: Extract ZIP into your project root, creates `.gemini/` folder + skill files
-
-### 4. Codex CLI (Full Featured)
-- **Commands**: Custom prompt format → `dist/codex/.codex/prompts/*.md`
-  - Uses `description` and `argument-hint` in frontmatter
-  - Transforms `{{argname}}` → `$ARGNAME` (uppercase variables)
-  - Invoked as `/prompts:<name>`
-- **Skills**: Agent Skills standard → `dist/codex/.codex/skills/{name}/SKILL.md`
-  - Same SKILL.md format as Claude Code with YAML frontmatter
-  - Reference files in skill subdirectories
-- **Installation**: Extract ZIP into your project root, creates `.codex/` folder
-
-### 5. GitHub Copilot CLI
-- **Skills**: Agent Skills standard → `dist/copilot-cli/.github/skills/{name}/SKILL.md`
-- **Instructions**: Repository custom instructions → `dist/copilot-cli/.github/copilot-instructions.md`
-- **Path-specific instructions**: `dist/copilot-cli/.github/instructions/*.instructions.md`
-- **Preserves**: Skill descriptions, licenses, reference files, and provider-specific placeholder replacement
-- **Installation**: Merge the generated `.github/` contents into your project root
-
-## Key Design Decisions
-
-### Why commit dist/?
-End users can copy files directly without needing build tools.
-
-### Why separate transformers?
-- Each provider ~30-85 lines, easy to understand
-- Can modify one without affecting others
-- Easy to add new providers
-
-### Why npm + tsx?
-- Familiar workflow for contributors
-- Works cleanly with Node.js tooling
-- `tsx` runs ESM scripts without extra build config
-- Keeps local development close to production behavior
-
-### Why modular skills for Gemini/Codex?
-- Better context management (load only what's needed)
-- Cleaner file organization
-- Gemini: Uses native `@file.md` import feature
-- Codex: Uses routing pattern with AGENTS.md guide
-
-### Why vanilla JS for website?
-- No build complexity
-- Browser-native ES modules plus the Tailwind CLI keep tooling minimal
-- Modern features (ES6+, CSS nesting, OKLCH colors)
-- Fast, lean, maintainable
-
-## Adding New Content
-
-1. **Create source file** in `source/commands/` or `source/skills/`
-2. **Add frontmatter** with name, description, args (for commands) or license (for skills)
-3. **Write body** with instructions/prompt
-4. **Build**: `npm run build`
-5. **Test** with your provider
-6. **Commit** both source and dist files
-
-## Important Notes
-
-- **Source is truth**: Always edit `source/`, never edit `dist/` directly
-- **Test across providers**: Changes affect 4 different outputs
-- **Argument handling**: Write prompts that work with both placeholders and appending
-- **Cursor limitations**: No frontmatter/args, so design for graceful degradation
-
-## Documentation
-
-- **README.md**: End user guide (installation, usage, quick dev setup)
-- **DEVELOP.md**: Contributor guide (architecture, build system, adding content)
-- **This file (AGENTS.md)**: Context for AI assistants and new developers
-
-## Provider Documentation Links
-
-- [Agent Skills Specification](https://agentskills.io/specification) - Open standard
-- [Cursor Commands](https://cursor.com/docs/agent/chat/commands)
-- [Cursor Rules](https://cursor.com/docs/context/rules)
-- [Cursor Skills](https://cursor.com/docs/context/skills)
-- [Claude Code Slash Commands](https://code.claude.com/docs/en/slash-commands)
-- [Anthropic Skills](https://github.com/anthropics/skills)
-- [GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli)
-- [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-skills)
-- [Gemini CLI Custom Commands](https://cloud.google.com/blog/topics/developers-practitioners/gemini-cli-custom-slash-commands)
-- [Gemini CLI GEMINI.md](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md)
-- [Codex CLI Slash Commands](https://developers.openai.com/codex/guides/slash-commands)
-- [Codex CLI Skills](https://developers.openai.com/codex/skills/)
+Do not edit generated provider files directly unless you are intentionally patching generated output as part of a build-system change. Prefer fixing the root source in `skill/`, `scripts/`, or `cli/`, then regenerate artifacts for validation. Stage generated harness artifacts only for release/main-sync or build-system work.

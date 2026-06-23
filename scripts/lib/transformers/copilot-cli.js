@@ -1,6 +1,15 @@
 import fs from 'fs';
 import path from 'path';
-import { cleanDir, ensureDir, writeFile, generateYamlFrontmatter, replacePlaceholders, prefixSkillReferences } from '../utils.js';
+import {
+  cleanDir,
+  ensureDir,
+  writeFile,
+  generateYamlFrontmatter,
+  replacePlaceholders,
+  prefixSkillReferences,
+  compileProviderBlocks,
+  stripRuleMarkers,
+} from '../utils.js';
 
 function transformInstructionContent(content, commandNames, allSkillNames, prefix) {
   let transformed = replacePlaceholders(content, 'copilot-cli', commandNames);
@@ -64,6 +73,7 @@ export function transformCopilotCli(skills, distDir, patterns = null, options = 
   const allSkillNames = skills.map(s => s.name);
   const commandNames = skills.filter(s => s.userInvocable).map(s => `${prefix}${s.name}`);
   let refCount = 0;
+  let scriptCount = 0;
 
   for (const skill of skills) {
     const skillName = `${prefix}${skill.name}`;
@@ -77,7 +87,11 @@ export function transformCopilotCli(skills, distDir, patterns = null, options = 
     if (skill.license) frontmatterObj.license = skill.license;
 
     const frontmatter = generateYamlFrontmatter(frontmatterObj);
-    let skillBody = replacePlaceholders(skill.body, 'copilot-cli', commandNames);
+    const scriptsPath = `.github/skills/${skillName}/scripts`;
+    let skillBody = compileProviderBlocks(skill.body, ['github']);
+    skillBody = replacePlaceholders(skillBody, 'copilot-cli', commandNames, allSkillNames);
+    skillBody = stripRuleMarkers(skillBody);
+    skillBody = skillBody.replace(/\{\{scripts_path\}\}/g, scriptsPath);
     if (prefix) skillBody = prefixSkillReferences(skillBody, prefix, allSkillNames);
     const content = `${frontmatter}\n\n${skillBody}`;
     writeFile(path.join(skillDir, 'SKILL.md'), content);
@@ -87,9 +101,21 @@ export function transformCopilotCli(skills, distDir, patterns = null, options = 
       ensureDir(refDir);
 
       for (const ref of skill.references) {
-        const refContent = replacePlaceholders(ref.content, 'copilot-cli');
+        let refContent = compileProviderBlocks(ref.content, ['github']);
+        refContent = replacePlaceholders(refContent, 'copilot-cli', [], allSkillNames);
+        refContent = stripRuleMarkers(refContent);
+        refContent = refContent.replace(/\{\{scripts_path\}\}/g, scriptsPath);
         writeFile(path.join(refDir, `${ref.name}.md`), refContent);
         refCount++;
+      }
+    }
+
+    if (skill.scripts && skill.scripts.length > 0) {
+      const scriptsOutDir = path.join(skillDir, 'scripts');
+      ensureDir(scriptsOutDir);
+      for (const script of skill.scripts) {
+        writeFile(path.join(scriptsOutDir, script.name), script.content);
+        scriptCount++;
       }
     }
   }
@@ -117,7 +143,8 @@ export function transformCopilotCli(skills, distDir, patterns = null, options = 
 
   const userInvocableCount = skills.filter(s => s.userInvocable).length;
   const refInfo = refCount > 0 ? ` (${refCount} reference files)` : '';
+  const scriptInfo = scriptCount > 0 ? ` (${scriptCount} script files)` : '';
   const instructionInfo = instructionCount > 0 ? ` (${instructionCount} instruction files)` : '';
   const prefixInfo = prefix ? ` [${prefix}prefixed]` : '';
-  console.log(`✓ Copilot CLI${prefixInfo}: ${skills.length} skills (${userInvocableCount} user-invocable)${refInfo}${instructionInfo}`);
+  console.log(`✓ Copilot CLI${prefixInfo}: ${skills.length} skills (${userInvocableCount} user-invocable)${refInfo}${scriptInfo}${instructionInfo}`);
 }

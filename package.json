@@ -1,36 +1,113 @@
 {
   "name": "impeccable",
-  "version": "1.6.0-bgausden.1",
+  "version": "3.1.0-bgausden.1",
   "author": "Paul Bakaus",
-  "dependencies": {
-    "archiver": "^7.0.1",
-    "motion": "^12.23.26",
-    "playwright": "^1.57.0"
-  },
-  "description": "Cross-provider design skills and commands for LLM-powered development tools",
+  "description": "Design skills, commands, and anti-pattern detection for AI coding agents",
   "keywords": [
-    "cursor",
-    "claude",
-    "gemini",
-    "codex",
     "design",
     "frontend",
-    "ux"
+    "ux",
+    "skills",
+    "ai",
+    "anti-patterns",
+    "lint",
+    "accessibility",
+    "css",
+    "html",
+    "detection",
+    "ci-cd"
   ],
-  "license": "SEE LICENSE FILE",
-  "scripts": {
-    "css:build": "npx @tailwindcss/cli -i public/css/main.css -o public/css/styles.css --minify",
-    "build": "tsx scripts/build.js",
-    "clean": "rm -rf dist build",
-    "rebuild": "npm run clean && npm run build",
-    "dev": "tsx server/index.js",
-    "test": "node --test",
-    "screenshot": "tsx scripts/screenshot-antipatterns.js",
-    "og-image": "tsx scripts/generate-og-image.js"
+  "license": "Apache-2.0",
+  "homepage": "https://impeccable.style",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pbakaus/impeccable.git"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "type": "module",
+  "bin": {
+    "impeccable": "cli/bin/cli.js"
+  },
+  "main": "./cli/engine/detect-antipatterns.mjs",
+  "exports": {
+    ".": "./cli/engine/detect-antipatterns.mjs",
+    "./browser": "./cli/engine/detect-antipatterns-browser.js"
+  },
+  "files": [
+    "cli/",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build:skills": "node scripts/build.js --skip-root-sync",
+    "build:skills:release": "node scripts/build.js",
+    "build:site": "npx astro build",
+    "build": "npm run build:skills:release && npm run build:site && cp -R dist build/_data/dist",
+    "build:release": "npm run build:skills:release && npm run build:site && cp -R dist build/_data/dist",
+    "build:browser": "node scripts/build-browser-detector.js",
+    "build:extension": "node scripts/build-extension.js",
+    "clean": "rm -rf dist build",
+    "rebuild": "npm run clean && npm run build",
+    "rebuild:release": "npm run clean && npm run build:release",
+    "dev": "node scripts/gen-dev-api.mjs && npx astro dev",
+    "preview": "npm run build && npx astro preview",
+    "deploy": "npm run build && wrangler pages deploy build/",
+    "test": "node scripts/run-tests.mjs default",
+    "test:core": "node scripts/run-tests.mjs core",
+    "test:detector": "node scripts/run-tests.mjs detector",
+    "test:framework": "node scripts/run-tests.mjs framework",
+    "test:live": "node scripts/run-tests.mjs live",
+    "test:cli-e2e": "node scripts/run-tests.mjs cli-e2e",
+    "test:cli-remote-e2e": "node scripts/run-tests.mjs cli-remote-e2e",
+    "test:live-e2e": "node scripts/run-tests.mjs live-e2e",
+    "test:live-e2e-accept-cleanup": "node scripts/run-tests.mjs live-e2e-accept-cleanup",
+    "test:live-e2e-agent": "node scripts/run-tests.mjs live-e2e-agent",
+    "test:skill-behavior": "node scripts/run-tests.mjs skill-behavior",
+    "test:live-svelte-adapter-deepseek": "node scripts/run-tests.mjs live-svelte-adapter-deepseek",
+    "smoke:hooks": "node scripts/smoke-provider-hooks.mjs",
+    "bench:detector": "node scripts/benchmark-detector.mjs",
+    "bench:detector:browser": "node scripts/benchmark-detector.mjs --browser",
+    "audit": "npm audit --audit-level=moderate",
+    "prepack": "cp README.md README.repo.md && cp README.npm.md README.md",
+    "postpack": "cp README.repo.md README.md && rm README.repo.md",
+    "release:skill": "node scripts/release.mjs skill",
+    "release:cli": "node scripts/release.mjs cli",
+    "release:ext": "node scripts/release.mjs extension",
+    "screenshot": "node scripts/screenshot-antipatterns.js",
+    "og-image": "node scripts/generate-og-image.js",
+    "css:build": "npx @tailwindcss/cli -i public/css/main.css -o public/css/styles.css --minify"
+  },
+  "dependencies": {
+    "css-select": "^7.0.0",
+    "css-tree": "^3.2.1",
+    "domutils": "^4.0.2",
+    "fflate": "^0.8.3",
+    "htmlparser2": "^12.0.0",
+    "marked": "^18.0.5"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^25.1.0"
+  },
   "devDependencies": {
+    "@ai-sdk/anthropic": "^3.0.71",
+    "@ai-sdk/google": "^3.0.75",
+    "@ai-sdk/openai": "^3.0.53",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.165",
+    "@anthropic-ai/sdk": "^0.104.2",
+    "@google/genai": "^2.8.0",
+    "@paper-design/shaders": "^0.0.76",
     "@tailwindcss/cli": "^4.1.13",
-    "tsx": "^4.20.5"
+    "ai": "^6.0.168",
+    "archiver": "^8.0.0",
+    "astro": "^6.2.1",
+    "fontkit": "^2.0.4",
+    "modern-screenshot": "^4.7.0",
+    "motion": "^12.38.0",
+    "opentype.js": "^2.0.0",
+    "playwright": "^1.59.1",
+    "tsx": "^4.20.5",
+    "wrangler": "^4.85.0",
+    "zod": "^4.3.6"
   }
 }

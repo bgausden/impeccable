@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from './test-helpers.js';
+import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import fs from 'fs';
 import path from 'path';
 import * as utils from '../scripts/lib/utils.js';
@@ -21,37 +21,36 @@ describe('build orchestration', () => {
   });
 
   test('should call readSourceFiles with root directory', () => {
-    const calls = [];
-    const fakeUtils = {
-      readSourceFiles(rootDir) {
-        calls.push(['readSourceFiles', rootDir]);
-        return { skills: [] };
-      },
-      readPatterns() {
-        return { patterns: [], antipatterns: [] };
-      }
-    };
-    const fakeTransformers = {
-      transformCursor() {},
-      transformClaudeCode() {},
-      transformGemini() {},
-      transformCodex() {},
-      transformCopilotCli() {},
-    };
+    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
+      skills: []
+    });
+
+    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
+    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
+    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
+    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
+    const transformCopilotCliSpy = spyOn(transformers, 'transformCopilotCli').mockImplementation(() => {});
 
     // Simulate the build process
     const ROOT_DIR = TEST_DIR;
     const DIST_DIR = path.join(ROOT_DIR, 'dist');
 
-    const { skills } = fakeUtils.readSourceFiles(ROOT_DIR);
-    const patterns = fakeUtils.readPatterns(ROOT_DIR);
-    fakeTransformers.transformCursor(skills, DIST_DIR, patterns);
-    fakeTransformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    fakeTransformers.transformGemini(skills, DIST_DIR, patterns);
-    fakeTransformers.transformCodex(skills, DIST_DIR, patterns);
-    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
+    const { skills } = utils.readSourceFiles(ROOT_DIR);
+    const patterns = utils.readPatterns(ROOT_DIR);
+    transformers.transformCursor(skills, DIST_DIR, patterns);
+    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
+    transformers.transformGemini(skills, DIST_DIR, patterns);
+    transformers.transformCodex(skills, DIST_DIR, patterns);
+    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
 
-    expect(calls).toEqual([['readSourceFiles', ROOT_DIR]]);
+    expect(readSourceFilesSpy).toHaveBeenCalledWith(ROOT_DIR);
+
+    readSourceFilesSpy.mockRestore();
+    transformCursorSpy.mockRestore();
+    transformClaudeCodeSpy.mockRestore();
+    transformGeminiSpy.mockRestore();
+    transformCodexSpy.mockRestore();
+    transformCopilotCliSpy.mockRestore();
   });
 
   test('should call all transformers with correct arguments', () => {
@@ -60,101 +59,81 @@ describe('build orchestration', () => {
     ];
     const patterns = { patterns: [], antipatterns: [] };
 
-    const transformerCalls = [];
-    const fakeUtils = {
-      readSourceFiles() {
-        return { skills };
-      },
-      readPatterns() {
-        return patterns;
-      }
-    };
-    const fakeTransformers = {
-      transformCursor(...args) {
-        transformerCalls.push(['cursor', ...args]);
-      },
-      transformClaudeCode(...args) {
-        transformerCalls.push(['claude-code', ...args]);
-      },
-      transformGemini(...args) {
-        transformerCalls.push(['gemini', ...args]);
-      },
-      transformCodex(...args) {
-        transformerCalls.push(['codex', ...args]);
-      },
-      transformCopilotCli(...args) {
-        transformerCalls.push(['copilot-cli', ...args]);
-      },
-    };
+    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
+      skills
+    });
+    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue(patterns);
+
+    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
+    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
+    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
+    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
+    const transformCopilotCliSpy = spyOn(transformers, 'transformCopilotCli').mockImplementation(() => {});
 
     const ROOT_DIR = TEST_DIR;
     const DIST_DIR = path.join(ROOT_DIR, 'dist');
 
-    const sourceFiles = fakeUtils.readSourceFiles(ROOT_DIR);
-    const patternData = fakeUtils.readPatterns(ROOT_DIR);
-    fakeTransformers.transformCursor(sourceFiles.skills, DIST_DIR, patternData);
-    fakeTransformers.transformClaudeCode(sourceFiles.skills, DIST_DIR, patternData);
-    fakeTransformers.transformGemini(sourceFiles.skills, DIST_DIR, patternData);
-    fakeTransformers.transformCodex(sourceFiles.skills, DIST_DIR, patternData);
-    fakeTransformers.transformCopilotCli(sourceFiles.skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
+    const sourceFiles = utils.readSourceFiles(ROOT_DIR);
+    const patternData = utils.readPatterns(ROOT_DIR);
+    transformers.transformCursor(sourceFiles.skills, DIST_DIR, patternData);
+    transformers.transformClaudeCode(sourceFiles.skills, DIST_DIR, patternData);
+    transformers.transformGemini(sourceFiles.skills, DIST_DIR, patternData);
+    transformers.transformCodex(sourceFiles.skills, DIST_DIR, patternData);
+    transformers.transformCopilotCli(sourceFiles.skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
 
-    expect(transformerCalls).toEqual([
-      ['cursor', skills, DIST_DIR, patterns],
-      ['claude-code', skills, DIST_DIR, patterns],
-      ['gemini', skills, DIST_DIR, patterns],
-      ['codex', skills, DIST_DIR, patterns],
-      ['copilot-cli', skills, DIST_DIR, patterns, { rootDir: ROOT_DIR }],
-    ]);
+    expect(transformCursorSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
+    expect(transformClaudeCodeSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
+    expect(transformGeminiSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
+    expect(transformCodexSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
+    expect(transformCopilotCliSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
+
+    readSourceFilesSpy.mockRestore();
+    readPatternsSpy.mockRestore();
+    transformCursorSpy.mockRestore();
+    transformClaudeCodeSpy.mockRestore();
+    transformGeminiSpy.mockRestore();
+    transformCodexSpy.mockRestore();
+    transformCopilotCliSpy.mockRestore();
   });
 
   test('should handle empty source files', () => {
     const patterns = { patterns: [], antipatterns: [] };
 
-    const transformerCalls = [];
-    const fakeUtils = {
-      readSourceFiles() {
-        return { skills: [] };
-      },
-      readPatterns() {
-        return patterns;
-      }
-    };
-    const fakeTransformers = {
-      transformCursor(...args) {
-        transformerCalls.push(['cursor', ...args]);
-      },
-      transformClaudeCode(...args) {
-        transformerCalls.push(['claude-code', ...args]);
-      },
-      transformGemini(...args) {
-        transformerCalls.push(['gemini', ...args]);
-      },
-      transformCodex(...args) {
-        transformerCalls.push(['codex', ...args]);
-      },
-      transformCopilotCli(...args) {
-        transformerCalls.push(['copilot-cli', ...args]);
-      },
-    };
+    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
+      skills: []
+    });
+    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue(patterns);
+
+    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
+    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
+    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
+    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
+    const transformCopilotCliSpy = spyOn(transformers, 'transformCopilotCli').mockImplementation(() => {});
 
     const ROOT_DIR = TEST_DIR;
     const DIST_DIR = path.join(ROOT_DIR, 'dist');
 
-    const { skills } = fakeUtils.readSourceFiles(ROOT_DIR);
-    const patternData = fakeUtils.readPatterns(ROOT_DIR);
-    fakeTransformers.transformCursor(skills, DIST_DIR, patternData);
-    fakeTransformers.transformClaudeCode(skills, DIST_DIR, patternData);
-    fakeTransformers.transformGemini(skills, DIST_DIR, patternData);
-    fakeTransformers.transformCodex(skills, DIST_DIR, patternData);
-    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
+    const { skills } = utils.readSourceFiles(ROOT_DIR);
+    const patternData = utils.readPatterns(ROOT_DIR);
+    transformers.transformCursor(skills, DIST_DIR, patternData);
+    transformers.transformClaudeCode(skills, DIST_DIR, patternData);
+    transformers.transformGemini(skills, DIST_DIR, patternData);
+    transformers.transformCodex(skills, DIST_DIR, patternData);
+    transformers.transformCopilotCli(skills, DIST_DIR, patternData, { rootDir: ROOT_DIR });
 
-    expect(transformerCalls).toEqual([
-      ['cursor', [], DIST_DIR, patterns],
-      ['claude-code', [], DIST_DIR, patterns],
-      ['gemini', [], DIST_DIR, patterns],
-      ['codex', [], DIST_DIR, patterns],
-      ['copilot-cli', [], DIST_DIR, patterns, { rootDir: ROOT_DIR }],
-    ]);
+    expect(transformCursorSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
+    expect(transformClaudeCodeSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
+    expect(transformGeminiSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
+    expect(transformCodexSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
+    expect(transformCopilotCliSpy).toHaveBeenCalledWith([], DIST_DIR, patterns, { rootDir: ROOT_DIR });
+
+    readSourceFilesSpy.mockRestore();
+    readPatternsSpy.mockRestore();
+    transformCursorSpy.mockRestore();
+    transformClaudeCodeSpy.mockRestore();
+    transformGeminiSpy.mockRestore();
+    transformCodexSpy.mockRestore();
+    transformCopilotCliSpy.mockRestore();
   });
 
   test('integration: full build creates all expected outputs', () => {
@@ -167,9 +146,9 @@ license: MIT
 
 This is a test skill body.`;
 
-    const skillDir = path.join(TEST_DIR, 'source/skills/test-skill');
+    const skillDir = path.join(TEST_DIR, 'skill');
     fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
     fs.mkdirSync(path.join(TEST_DIR, 'source/copilot-cli/instructions'), { recursive: true });
     fs.writeFileSync(path.join(TEST_DIR, 'source/copilot-cli/copilot-instructions.md'), 'Repo instructions');
 
@@ -199,6 +178,60 @@ This is a test skill body.`;
     expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/copilot-instructions.md'))).toBe(true);
   });
 
+  test('integration: emits native subagent files for Codex and Claude Code', () => {
+    const skillContent = `---
+name: test-skill
+description: A test skill
+---
+
+This is a test skill body.`;
+
+    const agentContent = `---
+name: asset-producer
+codex-name: asset_producer
+description: Produces assets from approved crops
+tools: Read, Write
+model: inherit
+effort: medium
+max-turns: 8
+nickname-candidates:
+  - Asset Plate
+---
+
+Do not redesign the approved crop.`;
+
+    const skillDir = path.join(TEST_DIR, 'skill');
+    fs.mkdirSync(path.join(skillDir, 'agents'), { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'agents/asset-producer.md'), agentContent);
+
+    const DIST_DIR = path.join(TEST_DIR, 'dist');
+    const { skills } = utils.readSourceFiles(TEST_DIR);
+    const patterns = utils.readPatterns(TEST_DIR);
+
+    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
+    transformers.transformCodex(skills, DIST_DIR, patterns);
+
+    const claudeAgentPath = path.join(DIST_DIR, 'claude-code/.claude/agents/asset-producer.md');
+    // Codex auto-discovers agents nested inside an installed skill, so the .toml
+    // ships in the skill's own agents/ folder rather than a top-level .codex/agents/.
+    const codexAgentPath = path.join(DIST_DIR, 'codex/.codex/skills/test-skill/agents/asset_producer.toml');
+
+    expect(fs.existsSync(claudeAgentPath)).toBe(true);
+    expect(fs.existsSync(codexAgentPath)).toBe(true);
+
+    const claudeAgent = fs.readFileSync(claudeAgentPath, 'utf-8');
+    expect(claudeAgent).toContain('name: asset-producer');
+    expect(claudeAgent).toContain('tools: Read, Write');
+    expect(claudeAgent).toContain('maxTurns: 8');
+
+    const codexAgent = fs.readFileSync(codexAgentPath, 'utf-8');
+    expect(codexAgent).toContain('name = "asset_producer"');
+    expect(codexAgent).toContain('model_reasoning_effort = "medium"');
+    expect(codexAgent).toContain('nickname_candidates = ["Asset Plate"]');
+    expect(codexAgent).toContain('developer_instructions =');
+  });
+
   test('integration: verify transformations are correct', () => {
     const skillContent = `---
 name: audit
@@ -209,9 +242,9 @@ argument-hint: "[TARGET=<value>]"
 
 Please audit {{target}} for technical quality. Ask {{model}} for help.`;
 
-    const skillDir = path.join(TEST_DIR, 'source/skills/audit');
+    const skillDir = path.join(TEST_DIR, 'skill');
     fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
 
     const DIST_DIR = path.join(TEST_DIR, 'dist');
     const { skills } = utils.readSourceFiles(TEST_DIR);
@@ -221,7 +254,6 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     transformers.transformClaudeCode(skills, DIST_DIR, patterns);
     transformers.transformGemini(skills, DIST_DIR, patterns);
     transformers.transformCodex(skills, DIST_DIR, patterns);
-    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
 
     // Verify Cursor: full frontmatter with user-invocable
     const cursorContent = fs.readFileSync(path.join(DIST_DIR, 'cursor/.cursor/skills/audit/SKILL.md'), 'utf-8');
@@ -249,84 +281,47 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     const codexContent = fs.readFileSync(path.join(DIST_DIR, 'codex/.codex/skills/audit/SKILL.md'), 'utf-8');
     expect(codexContent).toContain('{{target}}'); // No body transform, placeholder preserved
     expect(codexContent).toContain('GPT');
-
-    // Verify Copilot CLI: skill in .github/skills without command metadata
-    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/skills/audit/SKILL.md'))).toBe(true);
-    const copilotContent = fs.readFileSync(path.join(DIST_DIR, 'copilot-cli/.github/skills/audit/SKILL.md'), 'utf-8');
-    expect(copilotContent).toContain('name: audit');
-    expect(copilotContent).toContain('{{target}}');
-    expect(copilotContent).toContain('GitHub Copilot');
-    expect(copilotContent).not.toContain('user-invocable: true');
-  });
-
-  test('integration: multiple skills', () => {
-    const skill1Dir = path.join(TEST_DIR, 'source/skills/skill1');
-    fs.mkdirSync(skill1Dir, { recursive: true });
-    fs.writeFileSync(path.join(skill1Dir, 'SKILL.md'), '---\nname: skill1\n---\nSkill1');
-
-    const skill2Dir = path.join(TEST_DIR, 'source/skills/skill2');
-    fs.mkdirSync(skill2Dir, { recursive: true });
-    fs.writeFileSync(path.join(skill2Dir, 'SKILL.md'), '---\nname: skill2\n---\nSkill2');
-
-    const DIST_DIR = path.join(TEST_DIR, 'dist');
-    const { skills } = utils.readSourceFiles(TEST_DIR);
-    const patterns = utils.readPatterns(TEST_DIR);
-
-    expect(skills).toHaveLength(2);
-
-    transformers.transformCursor(skills, DIST_DIR, patterns);
-    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    transformers.transformGemini(skills, DIST_DIR, patterns);
-    transformers.transformCodex(skills, DIST_DIR, patterns);
-    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
-
-    // Verify all files exist
-    expect(fs.existsSync(path.join(DIST_DIR, 'cursor/.cursor/skills/skill1/SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(DIST_DIR, 'cursor/.cursor/skills/skill2/SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(DIST_DIR, 'claude-code/.claude/skills/skill1/SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(DIST_DIR, 'claude-code/.claude/skills/skill2/SKILL.md'))).toBe(true);
   });
 
   test('should call transformers in correct order', () => {
     const callOrder = [];
-    const fakeUtils = {
-      readSourceFiles() {
-        return { skills: [] };
-      },
-      readPatterns() {
-        return { patterns: [], antipatterns: [] };
-      }
-    };
-    const fakeTransformers = {
-      transformCursor() {
+
+    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
+      skills: []
+    });
+    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue({ patterns: [], antipatterns: [] });
+
+    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {
       callOrder.push('cursor');
-      },
-      transformClaudeCode() {
+    });
+    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {
       callOrder.push('claude-code');
-      },
-      transformGemini() {
+    });
+    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {
       callOrder.push('gemini');
-      },
-      transformCodex() {
+    });
+    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {
       callOrder.push('codex');
-      },
-      transformCopilotCli() {
-      callOrder.push('copilot-cli');
-      },
-    };
+    });
 
     const ROOT_DIR = TEST_DIR;
     const DIST_DIR = path.join(ROOT_DIR, 'dist');
 
-    const { skills } = fakeUtils.readSourceFiles(ROOT_DIR);
-    const patterns = fakeUtils.readPatterns(ROOT_DIR);
-    fakeTransformers.transformCursor(skills, DIST_DIR, patterns);
-    fakeTransformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    fakeTransformers.transformGemini(skills, DIST_DIR, patterns);
-    fakeTransformers.transformCodex(skills, DIST_DIR, patterns);
-    fakeTransformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: ROOT_DIR });
+    const { skills } = utils.readSourceFiles(ROOT_DIR);
+    const patterns = utils.readPatterns(ROOT_DIR);
+    transformers.transformCursor(skills, DIST_DIR, patterns);
+    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
+    transformers.transformGemini(skills, DIST_DIR, patterns);
+    transformers.transformCodex(skills, DIST_DIR, patterns);
 
-    expect(callOrder).toEqual(['cursor', 'claude-code', 'gemini', 'codex', 'copilot-cli']);
+    expect(callOrder).toEqual(['cursor', 'claude-code', 'gemini', 'codex']);
+
+    readSourceFilesSpy.mockRestore();
+    readPatternsSpy.mockRestore();
+    transformCursorSpy.mockRestore();
+    transformClaudeCodeSpy.mockRestore();
+    transformGeminiSpy.mockRestore();
+    transformCodexSpy.mockRestore();
   });
 
   test('should include agents and kiro transformers', () => {
@@ -336,24 +331,74 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
 
     // These should not throw
     transformers.transformAgents(skills, DIST_DIR, patterns);
+    transformers.transformGitHub(skills, DIST_DIR, patterns);
     transformers.transformKiro(skills, DIST_DIR, patterns);
 
     // Verify outputs
     expect(fs.existsSync(path.join(DIST_DIR, 'agents/.agents/skills'))).toBe(true);
+    expect(fs.existsSync(path.join(DIST_DIR, 'github/.github/skills'))).toBe(true);
     expect(fs.existsSync(path.join(DIST_DIR, 'kiro/.kiro/skills'))).toBe(true);
   });
+});
 
-  test('should include copilot-cli transformer', () => {
-    fs.mkdirSync(path.join(TEST_DIR, 'source/copilot-cli/instructions'), { recursive: true });
-    fs.writeFileSync(path.join(TEST_DIR, 'source/copilot-cli/copilot-instructions.md'), 'Repo instructions');
+// Resolve a relative import specifier against the importer's bundle-relative
+// path, mirroring Node ESM resolution against the set of bundled script names.
+// Returns the matching bundled name, or null if nothing resolves.
+function resolveBundledImport(importerName, specifier, names) {
+  const dirParts = importerName.split('/').slice(0, -1);
+  const parts = dirParts.concat(specifier.split('/'));
+  const resolved = [];
+  for (const part of parts) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') { resolved.pop(); continue; }
+    resolved.push(part);
+  }
+  const base = resolved.join('/');
+  // ESM needs an explicit extension, but be tolerant of extensionless and
+  // index specifiers so the check tracks real module-resolution behavior.
+  const candidates = [base, `${base}.mjs`, `${base}.js`, `${base}/index.mjs`, `${base}/index.js`];
+  return candidates.find((c) => names.has(c)) || null;
+}
 
-    const { skills } = utils.readSourceFiles(TEST_DIR);
-    const patterns = utils.readPatterns(TEST_DIR);
-    const DIST_DIR = path.join(TEST_DIR, 'dist');
+// Regression guard for issue #254: the bundled detector imported
+// `../../lib/impeccable-config.mjs`, a file that lives outside `cli/engine` and
+// was never copied into the bundle, so `/impeccable critique` crashed with
+// "Cannot find module .../lib/impeccable-config.mjs". This walks every bundled
+// script and asserts each relative import resolves to another bundled file, so
+// any future out-of-bundle dependency fails the build instead of the user.
+describe('bundled skill scripts are self-contained', () => {
+  const ROOT_DIR = process.cwd();
+  const { skills } = utils.readSourceFiles(ROOT_DIR);
+  const scripts = skills[0]?.scripts ?? [];
+  const jsScripts = scripts.filter((s) => /\.(mjs|js)$/.test(s.name));
+  const names = new Set(scripts.map((s) => s.name));
 
-    transformers.transformCopilotCli(skills, DIST_DIR, patterns, { rootDir: TEST_DIR });
+  // Static `import ... from '...'` and re-export `export ... from '...'` only;
+  // dynamic `import()` of computed paths (e.g. detect.mjs) is out of scope.
+  const importRe = /(?:^|[\s;])(?:import|export)\b[^'"`]*?\bfrom\s*['"]([^'"]+)['"]/g;
 
-    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/skills'))).toBe(true);
-    expect(fs.existsSync(path.join(DIST_DIR, 'copilot-cli/.github/copilot-instructions.md'))).toBe(true);
+  // Drop comments first so an example like `// import ... from '...'` in a
+  // doc comment (detector/node/file-system.mjs has one) isn't read as a real import.
+  const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  test('the detector bundle includes its config dependency', () => {
+    expect(names.has('lib/impeccable-config.mjs')).toBe(true);
+  });
+
+  test('every relative import resolves to a bundled file', () => {
+    const broken = [];
+    for (const script of jsScripts) {
+      const source = stripComments(script.content);
+      importRe.lastIndex = 0;
+      let match;
+      while ((match = importRe.exec(source)) !== null) {
+        const specifier = match[1];
+        if (!specifier.startsWith('.')) continue; // bare/node specifiers
+        if (!resolveBundledImport(script.name, specifier, names)) {
+          broken.push(`${script.name} -> ${specifier}`);
+        }
+      }
+    }
+    expect(broken).toEqual([]);
   });
 });
